@@ -1,0 +1,279 @@
+The Product: VirtueCommand
+One sentence: A chat-driven planning tool where NGO planners ask questions about
+healthcare in Ghana and get evidence-backed, debate-tested recommendations with a live
+map.
+Four SOTA techniques, each earning its place:
+Technique What It Solves
+Self-RAG Messy data → reliable answers (IDP criterion, 30%)
+GraphRAG Gap detection + multi-hop reasoning (Technical accuracy, 35%)
+Multi-Agent Debate Planning recommendations with tradeoffs (Social impact, 25%)
+Tracing + HIL Trust + citations + planner can push back (UX, 10% + stretch
+
+goal)
+
+The Interface
+┌────────────────────────────────────────────────────────
+─────┐
+│ VIRTUECOMMAND [Trace Log ▶] │
+├────────────────────────────┬───────────────────────────
+─────┤
+│ │ │
+│ MAP │ CHAT │
+│ (Mapbox, dark style) │ │
+│ │ Welcome! I can help you │
+│ ● Facilities (colored │ explore healthcare facility │
+│ by capability level) │ data across Ghana. │
+│ │ │
+│ █ Coverage zones │ Try: │
+│ │ • "Where are the surgical │
+│ ░ Medical deserts │ deserts?" │
+│ │ • "I have 2 surgeons to │
+│ │ deploy — where?" │
+│ │ • "Is Aisha Hospital's MRI │
+│ │ claim credible?" │
+│ │ │
+│ │ ┌─────────────────────────┐ │
+│ │ │ Ask anything... │ │
+│ │ └─────────────────────────┘ │
+
+├────────────────────────────┴───────────────────────────
+─────┤
+│ [Trace Panel - collapsed by default, expandable] │
+│ Shows: agent steps, tool calls, evidence used, confidence │
+└────────────────────────────────────────────────────────
+─────┘
+
+Two panels: Map + Chat. That's the core. The trace panel slides up from the bottom or
+opens as a sidebar when you click "Trace Log" — it's there for judges and power users but
+doesn't clutter the planner's experience.
+The map is reactive to chat. Every agent response can push commands to the map:
+highlight a region, show facilities matching a query, draw coverage circles, shade deserts.
+The planner never manually operates the map — they just talk, and the map responds.
+Three Modes of Interaction
+The system needs to handle three types of questions, each using different SOTA techniques:
+Mode 1: EXPLORE — "What's out there?"
+Handles challenge questions: 1.1-1.5, 2.1, 2.3, 6.1, 7.5, 7.6
+Planner: "What surgical capabilities exist in Northern Region?"
+SELF-RAG PIPELINE:
+1. Query decomposition: need both structured (facility counts)
+and unstructured (free-text mentions of surgery)
+2. Retrieve: SQL query for Northern Region facilities +
+Vector search for surgical mentions in procedure/equipment/capability
+3. SELF-REFLECTION: "Retrieved 8 facilities. But 2 of these
+mention surgery only as 'we refer surgical cases to...' —
+this is NOT capability, it's referral. Filtering."
+4. SELF-REFLECTION: "I searched 'surgery' but should also check
+'operating theatre', 'surgical', 'OR'. Running expanded search."
+5. Second retrieval catches 2 more facilities
+6. Final answer with confidence per facility
+Response: "Northern Region has 8 facilities mentioning
+surgical services. 6 are verified with corroborating
+equipment data. 2 are likely referral-only."
+[Map: Northern Region highlighted, 8 pins appear,
+6 green (verified), 2 yellow (unverified)]
+[Citations: each facility linked to row + specific text]
+
+Mode 2: VERIFY — "Can I trust this?"
+Handles challenge questions: 3.1, 3.4, 4.4, 4.6, 4.8, 4.9
+Planner: "Which hospitals have suspicious claims?"
+GRAPHRAG + DEBATE PIPELINE:
+1. Knowledge graph query: find facilities where
+capability claims have no supporting equipment edges
+2. For each flagged facility, run Advocate/Skeptic debate:
+Facility: "General Clinic, Accra"
+Type: clinic | Procedures: mentions surgery
+ADVOCATE: "Many clinics in Ghana perform minor surgical
+procedures. This could be legitimate minor surgery."
+SKEPTIC: "Classified as 'clinic', no operating theatre
+listed, no equipment field populated at all. Surgical
+claims from a facility with zero equipment data should
+be treated as unverified."
+VERDICT: ⚠️ LOW CONFIDENCE — unverified surgical claim
+3. Aggregate all flags into a report
+Response: "Found 13 facilities with capability/infrastructure
+mismatches. 4 are clinics claiming surgical procedures with
+no equipment data. 3 hospitals claim advanced imaging but
+only list basic X-ray. Full list with reasoning attached."
+[Map: 13 flagged facilities appear as ⚠️ markers]
+[Trace: full debate transcript for each, expandable]
+
+Mode 3: PLAN — "Where should I deploy?"
+Handles challenge: Planning System (Core MVP #3) + Social Impact
+Planner: "I have 1 ophthalmologist for 6 months. Where?"
+MULTI-AGENT DEBATE + GRAPHRAG:
+1. Graph query: find all facilities with eye care capabilities
+2. Graph query: find regions with NO eye care
+3. Graph query: find facilities with infrastructure that
+COULD support ophthalmology (has some medical equipment,
+reasonable facility size, but no eye specialist)
+4. Three advocates debate with evidence:
+
+┌─────────────────────────────────────────────────┐
+│ DEPLOYMENT ANALYSIS: 1 Ophthalmologist │
+│ │
+│ 📊 OPTION A: Tamale — Northern Region │
+│ Coverage: ████████████████████░ 2.4M people │
+│ Readiness: ████████░░░░░░░░░░░ UNCERTAIN │
+│ Equity: █████████████████████ HIGHEST NEED │
+│ "Zero verified eye care in the north. │
+│ Tamale Teaching Hospital has general │
+│ infrastructure but no ophthalmology equipment │
+│ confirmed." [3 citations] │
+│ │
+│ 📊 OPTION B: Ho — Volta Region │
+│ Coverage: ██████████░░░░░░░░░░ 900K people │
+│ Readiness: ████████████████░░░ GOOD │
+│ Equity: ████████████████░░░░ HIGH NEED │
+│ "Volta has 1 low-confidence eye clinic. │
+│ Ho Municipal Hospital has surgical capacity │
+│ that could support ophthalmic procedures." │
+│ [4 citations] │
+│ │
+│ 📊 OPTION C: Cape Coast — Central Region │
+│ Coverage: ██████████████░░░░░░ 1.2M people │
+│ Readiness: ██████████████████░ HIGHEST │
+│ Equity: ██████░░░░░░░░░░░░░░ MODERATE │
+│ "Some existing eye care but limited to basic. │
+│ Cape Coast Teaching Hospital is well-equipped │
+│ and could immediately support advanced │
+│ ophthalmic surgery." [5 citations] │
+│ │
+│ ⚖️ TRADEOFF: Tamale maximizes lives affected │
+│ but infrastructure is unconfirmed. Cape Coast │
+│ is safest bet but serves fewer underserved. │
+│ Recommend: Tamale pending site verification. │
+│ │
+│ [Map shows all 3 options with coverage circles] │
+└─────────────────────────────────────────────────┘
+Planner: "What would we need to verify in Tamale
+before committing?"
+Agent: [follows up using graph — traverses
+infrastructure edges for Tamale Teaching Hospital]
+"Three critical unknowns:
+1. Slit lamp and ophthalmoscope availability (not in data)
+2. Darkened examination room (not mentioned)
+3. Reliable electricity for laser equipment
+(no power data in records)
+
+Note: St. Anthony's Hospital in Dzodze received
+equipment through an NGO project including a generator
+[row 891]. A similar bundled deployment model could
+work for Tamale."
+
+The planner is now in a dialogue. They're not receiving a report — they're exploring
+options, asking follow-ups, testing scenarios. The system remembers context across the
+conversation and updates the map with each response.
+Data Pipeline (Pre-computation)
+Before the chat works, you need to process the 987 facilities at ingestion time:
+RAW CSV (987 rows, messy)
+│
+▼
+┌──────────────────────┐
+│ STEP 1: Clean & Norm │
+│ - Normalize 39 region│
+│ values → 16 │
+│ - Deduplicate │
+│ - Parse JSON arrays │
+│ - Geocode facilities │
+│ (city → lat/lng) │
+└──────────┬───────────┘
+▼
+┌──────────────────────┐
+│ STEP 2: Fingerprint │
+│ - LLM extracts │
+│ structured caps │
+│ from free text │
+│ - Confidence score │
+│ per capability │
+│ - Anomaly flags │
+│ - Upgrade potential │
+└──────────┬───────────┘
+▼
+┌──────────────────────────────────┐
+│ STEP 3: Build Knowledge Graph │
+│ │
+│ [Region]──has──▶[Facility] │
+│ [Facility]──has_cap──▶[Surgery] │
+│ [Facility]──has_equip──▶[OR] │
+│ [Facility]──LACKS──▶[NICU] │
+│ [Facility]──could_support──▶[X] │
+
+│ [Region]──desert_for──▶[Cardio] │
+└──────────┬───────────────────────┘
+▼
+┌──────────────────────────────────┐
+│ STEP 4: Index for Retrieval │
+│ - SQLite: structured fields │
+│ - FAISS: embeddings of free text│
+│ - NetworkX: knowledge graph │
+│ - All three queryable by agents │
+└──────────────────────────────────┘
+
+This runs once, takes ~10 minutes with GPT-4o, and then the chat is fast because agents
+query pre-processed data.
+Technical Architecture
+┌─────────────────────────────────────┐
+│ FRONTEND (Next.js) │
+│ ┌──────────┐ ┌────────────────┐ │
+│ │ Map │ │ Chat │ │
+│ │ (Mapbox) │ │ (WebSocket) │ │
+│ └──────────┘ └────────────────┘ │
+│ ┌──────────────────────────────┐ │
+│ │ Trace Panel (collapsible) │ │
+│ └──────────────────────────────┘ │
+└──────────────┬──────────────────────┘
+│ WebSocket
+▼
+┌──────────────────────────────────────┐
+│ BACKEND (FastAPI) │
+│ │
+│ ┌────────────────────────────────┐ │
+│ │ SUPERVISOR (LangGraph) │ │
+│ │ Routes: explore/verify/plan │ │
+│ └──────┬──────┬──────┬──────────┘ │
+│ │ │ │ │
+│ ┌────▼──┐ ┌─▼────┐ ┌▼─────────┐ │
+│ │SQL │ │Vector│ │Medical │ │
+│ │Agent │ │Search│ │Reasoning │ │
+│ │ │ │Agent │ │Agent │ │
+│ └───────┘ └──────┘ └──────────┘ │
+│ │ │ │ │
+│ ┌────▼──────▼──────▼──────────┐ │
+│ │ DATA LAYER │ │
+│ │ SQLite + FAISS + NetworkX │ │
+│ │ (pre-computed graph + │ │
+│ │ fingerprints + embeddings)│ │
+
+│ └─────────────────────────────┘ │
+│ │
+│ ┌────────────────────────────────┐ │
+│ │ MLflow Tracing │ │
+│ │ (logs every agent step + │ │
+│ │ inputs/outputs for citations)│ │
+│ └────────────────────────────────┘ │
+└──────────────────────────────────────┘
+
+The Agents (Concrete)
+Supervisor Agent — LangGraph router. Classifies intent (explore / verify / plan) and routes
+to the right workflow. Simple but essential.
+SQL Agent — Takes structured queries, generates SQL against the cleaned facility table.
+Handles: "How many hospitals in Northern Region?", "Which region has the most clinics?",
+"What's the bed capacity in Ashanti?" Covers Must Have questions 1.1, 1.2, 1.5, 4.4, 4.7,
+7.5, 7.6.
+Vector Search Agent (with Self-RAG) — Searches embeddings of
+procedure/equipment/capability text. The self-reflective loop:
+1. Initial retrieval
+2. Grade relevance of each result (is this actually about what we asked?)
+3. Filter false positives (referral mentions ≠ capability)
+4. Decide if more retrieval needed with different query terms
+5. Return only verified-relevant results
+Covers Must Have questions 1.3, 1.4 and powers the IDP innovation criterion.
+Medical Reasoning Agent — The brain. Uses the knowledge graph. Handles:
+● Cross-referencing (procedure claims vs equipment evidence)
+● Anomaly detection (advocate/skeptic debate)
+● Gap analysis (graph traversal for missing edges)
+● Planning (multi-advocate debate for deployment recommendations)
+● Follow-up reasoning (answering "what would we need to verify?")
+This single agent switches between debate modes depending on the task.
+All agents log to MLflow. Every tool call, every retrieval, every reasoning step. This
+generates the trace panel content AND the citations.
