@@ -26,7 +26,6 @@ dependencies = [
 [project.optional-dependencies]
 databricks = [
   "databricks-sql-connector",
-  "databricks-vector-search",
 ]
 local = [
   "lancedb",
@@ -48,3 +47,6 @@ package-dir = { "" = "src" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

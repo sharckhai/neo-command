@@ -26,5 +26,14 @@ class Settings:
 
     mapbox_token: str | None = os.getenv("MAPBOX_TOKEN")
 
+    def __post_init__(self) -> None:
+        target = (self.pipeline_target or "local").lower()
+        if target not in {"local", "databricks"}:
+            target = "local"
+        object.__setattr__(self, "pipeline_target", target)
+
+    def is_databricks(self) -> bool:
+        return self.pipeline_target == "databricks"
+
 
 settings = Settings()
