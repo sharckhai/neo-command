@@ -6,6 +6,7 @@ from pathlib import Path
 from agents import Agent, Runner, function_tool
 
 from agent.analyst import create_analyst
+from agent.rag_agent import create_rag_agent
 from agent.verifier import create_verifier
 
 _PROMPTS = Path(__file__).resolve().parent.parent.parent / "prompts"
@@ -15,6 +16,7 @@ def create_supervisor(G) -> Agent:
     """Create the Supervisor agent with agent-as-tool wrappers."""
     analyst = create_analyst(G)
     verifier = create_verifier(G)
+    rag_agent = create_rag_agent()
 
     # --- Agent-as-tool wrappers ---
 
@@ -30,6 +32,13 @@ def create_supervisor(G) -> Agent:
         """Ask the Verifier to assess data quality: anomaly detection,
         claim validation, equipment compliance checks."""
         result = await Runner.run(verifier, query)
+        return result.final_output
+
+    @function_tool
+    async def ask_rag_agent(query: str) -> str:
+        """Ask the RAG agent to search uploaded documents, ingest new files,
+        or answer questions from document contents."""
+        result = await Runner.run(rag_agent, query)
         return result.final_output
 
     # --- Debate tools ---
@@ -79,6 +88,7 @@ def create_supervisor(G) -> Agent:
         tools=[
             ask_analyst,
             ask_verifier,
+            ask_rag_agent,
             run_facility_debate,
             run_mission_debate,
         ],

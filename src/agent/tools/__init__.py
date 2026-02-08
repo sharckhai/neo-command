@@ -4,6 +4,7 @@ from agent.tools.inspect_tools import make_inspect_tools
 from agent.tools.gap_tools import make_gap_tools
 from agent.tools.anomaly_tools import make_anomaly_tools
 from agent.tools.overview_tools import make_overview_tools
+from agent.tools.rag_tools import make_rag_tools
 
 
 def make_all_tools(G):
