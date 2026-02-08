@@ -1,20 +1,23 @@
 import type { Metadata } from "next";
-import { Source_Serif_4, Space_Grotesk } from "next/font/google";
+import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 
-const display = Source_Serif_4({
-  variable: "--font-display",
-  subsets: ["latin"],
-});
-
-const body = Space_Grotesk({
+const body = IBM_Plex_Sans({
   variable: "--font-body",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+});
+
+const mono = IBM_Plex_Mono({
+  variable: "--font-mono",
+  subsets: ["latin"],
+  weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
-  title: "VirtueCommand",
-  description: "Chat-driven healthcare intelligence for NGO mission planners.",
+  title: "NEO — Ghana Health Facility Analyzer",
+  description:
+    "Agentic health facility analyzer with RAG search, IDP pipeline, and mission planning.",
 };
 
 export default function RootLayout({
@@ -24,9 +27,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${display.variable} ${body.variable}`}>
-        {children}
-      </body>
+      <head>
+        <meta name="theme-color" content="#050505" />
+      </head>
+      <body className={`${body.variable} ${mono.variable}`}>{children}</body>
     </html>
   );
 }

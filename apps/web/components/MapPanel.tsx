@@ -1,82 +1,63 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { ChatResponse, FacilitySummary } from "../lib/types";
+import { useEffect, useRef, useCallback } from "react";
+import type { Facility } from "../lib/types";
+import { CAP } from "../lib/capabilities";
+import { GR } from "../lib/geo";
 
-const REGION_CENTERS: Record<string, [number, number]> = {
-  "Greater Accra": [5.6037, -0.187],
-  Ashanti: [6.6885, -1.6244],
-  Northern: [9.4075, -0.8533],
-  "Upper East": [10.7867, -0.8514],
-  "Upper West": [10.0601, -2.5019],
-  Volta: [6.6008, 0.4713],
-  Western: [4.934, -1.7137],
-  "Western North": [6.2032, -2.4911],
-  Eastern: [6.0897, -0.2591],
-  Central: [5.1053, -1.2466],
-  Bono: [7.3349, -2.3123],
-  "Bono East": [7.5897, -1.9298],
-  Ahafo: [6.8045, -2.5196],
-  Oti: [8.0624, 0.5527],
-  Savannah: [9.0833, -1.8167],
-  "North East": [10.517, -0.363],
+type DesertRegion = {
+  region: string;
+  capability: string;
 };
 
-export default function MapPanel() {
+type MapPanelProps = {
+  facilities: Facility[];
+  selCap?: string | null;
+  desertRegions?: DesertRegion[];
+  planFacs?: Facility[];
+  onFacClick?: (fac: Facility) => void;
+};
+
+export default function MapPanel({
+  facilities,
+  selCap,
+  desertRegions,
+  planFacs,
+  onFacClick,
+}: MapPanelProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const mapboxRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
-  const highlightMarkersRef = useRef<any[]>([]);
-  const [status, setStatus] = useState<string>("Initializing map...");
-  const [facilityCount, setFacilityCount] = useState<number>(0);
+  const circlesRef = useRef<any[]>([]);
 
-  const setMarkers = (facilities: FacilitySummary[]) => {
-    if (!mapRef.current || !mapboxRef.current) return;
-    markersRef.current.forEach((marker) => marker.remove());
-    markersRef.current = [];
-    facilities.forEach((facility) => {
-      if (facility.lat == null || facility.lng == null) return;
-      const el = document.createElement("div");
-      el.style.width = "10px";
-      el.style.height = "10px";
-      el.style.borderRadius = "999px";
-      el.style.background = "#d18f4f";
-      el.style.boxShadow = "0 0 0 4px rgba(209,143,79,0.2)";
-      const marker = new mapboxRef.current.Marker(el)
-        .setLngLat([facility.lng, facility.lat])
-        .addTo(mapRef.current);
-      markersRef.current.push(marker);
-    });
-    setFacilityCount(facilities.length);
-  };
-
+  // Initialize map once
   useEffect(() => {
     let isMounted = true;
+
     async function initMap() {
       const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
-      if (!token) {
-        setStatus("Mapbox token missing. Set NEXT_PUBLIC_MAPBOX_TOKEN.");
-        return;
-      }
-      if (!mapContainerRef.current || mapRef.current) {
-        return;
-      }
+      if (!token || !mapContainerRef.current || mapRef.current) return;
+
       const mapboxgl = await import("mapbox-gl");
       mapboxgl.default.accessToken = token;
       mapboxRef.current = mapboxgl.default;
+
       mapRef.current = new mapboxgl.default.Map({
         container: mapContainerRef.current,
         style: "mapbox://styles/mapbox/dark-v11",
         center: [-1.0232, 7.9465],
         zoom: 5.5,
       });
-      mapRef.current.addControl(new mapboxgl.default.NavigationControl(), "top-right");
-      if (isMounted) {
-        setStatus("Live map ready");
-      }
+
+      mapRef.current.addControl(
+        new mapboxgl.default.NavigationControl(),
+        "top-right"
+      );
     }
+
     initMap();
+
     return () => {
       isMounted = false;
       if (mapRef.current) {
@@ -86,81 +67,142 @@ export default function MapPanel() {
     };
   }, []);
 
+  // Update markers and overlays when data changes
   useEffect(() => {
-    async function loadFacilities() {
-      try {
-        const res = await fetch("/api/facilities");
-        if (!res.ok) return;
-        const data = (await res.json()) as FacilitySummary[];
-        setMarkers(data);
-      } catch {
-        // ignore
+    if (!mapRef.current || !mapboxRef.current) return;
+
+    // Clear previous markers and circles
+    for (const m of markersRef.current) m.remove();
+    markersRef.current = [];
+    for (const c of circlesRef.current) c.remove();
+    circlesRef.current = [];
+
+    const planIdSet = new Set((planFacs || []).map((f) => f.id));
+
+    // Desert zone overlays — use Mapbox circles via markers
+    if (desertRegions) {
+      for (const d of desertRegions) {
+        const coords = GR[d.region?.toLowerCase()];
+        if (!coords) continue;
+
+        const el = document.createElement("div");
+        el.style.width = "80px";
+        el.style.height = "80px";
+        el.style.borderRadius = "50%";
+        el.style.border = "2px dashed rgba(255,42,42,0.5)";
+        el.style.background = "rgba(255,42,42,0.08)";
+        el.title = `Desert: ${d.region} — Missing ${(CAP[d.capability] || {}).l || d.capability}`;
+
+        const marker = new mapboxRef.current.Marker({ element: el })
+          .setLngLat([coords[1], coords[0]])
+          .addTo(mapRef.current);
+        circlesRef.current.push(marker);
       }
     }
-    loadFacilities();
-  }, []);
 
-  useEffect(() => {
-    const handler = (event: Event) => {
-      const detail = (event as CustomEvent<ChatResponse>).detail;
-      if (!detail) return;
-      if (detail.facilities && detail.facilities.length) {
-        setMarkers(detail.facilities);
+    // Plan facility highlights
+    if (planFacs) {
+      for (const f of planFacs) {
+        if (!f.lat || !f.lng) continue;
+        const el = document.createElement("div");
+        el.style.width = "20px";
+        el.style.height = "20px";
+        el.style.borderRadius = "50%";
+        el.style.border = "2px solid #10b981";
+        el.style.background = "rgba(16,185,129,0.15)";
+        const marker = new mapboxRef.current.Marker({ element: el })
+          .setLngLat([f.lng, f.lat])
+          .addTo(mapRef.current);
+        circlesRef.current.push(marker);
       }
-      detail.map_actions.forEach((action) => {
-        if (action.type === "zoom_region" && action.data?.region) {
-          const region = action.data.region as string;
-          const center = REGION_CENTERS[region];
-          if (center && mapRef.current) {
-            mapRef.current.flyTo({ center: [center[1], center[0]], zoom: 6.5 });
-            setStatus(`Focused on ${region}`);
-          }
-        }
-        if (action.type === "highlight_facilities" && action.data?.facilities && mapRef.current && mapboxRef.current) {
-          highlightMarkersRef.current.forEach((m) => m.remove());
-          highlightMarkersRef.current = [];
-          const facilities = action.data.facilities as { name: string; lat: number; lng: number }[];
-          const bounds = new mapboxRef.current.LngLatBounds();
-          facilities.forEach((f) => {
-            if (f.lat == null || f.lng == null) return;
-            const el = document.createElement("div");
-            el.style.width = "14px";
-            el.style.height = "14px";
-            el.style.borderRadius = "999px";
-            el.style.background = "#00c853";
-            el.style.boxShadow = "0 0 0 5px rgba(0,200,83,0.25)";
-            el.title = f.name;
-            const marker = new mapboxRef.current.Marker(el)
-              .setLngLat([f.lng, f.lat])
-              .addTo(mapRef.current);
-            highlightMarkersRef.current.push(marker);
-            bounds.extend([f.lng, f.lat]);
-          });
-          if (facilities.length > 0) {
-            mapRef.current.fitBounds(bounds, { padding: 60, maxZoom: 10 });
-            setStatus(`Highlighted ${facilities.length} facilities`);
-          }
-        }
-      });
-    };
-    window.addEventListener("map-actions", handler as EventListener);
-    return () => window.removeEventListener("map-actions", handler as EventListener);
-  }, []);
+    }
+
+    // Facility markers
+    const bounds =
+      facilities.length > 0 ? new mapboxRef.current.LngLatBounds() : null;
+
+    for (const f of facilities) {
+      if (!f.lat || !f.lng) continue;
+
+      const hasCap =
+        f.capabilities && selCap
+          ? f.capabilities[selCap] === true ||
+            (typeof f.capabilities[selCap] === "number" &&
+              (f.capabilities[selCap] as number) > 0)
+          : null;
+      const isPlan = planIdSet.has(f.id);
+      const anomalyCount = (f.anomalies || []).length;
+
+      // Color logic
+      let col: string;
+      if (isPlan) col = "#10b981";
+      else if (hasCap === true) col = "#10b981";
+      else if (hasCap === false) col = "#ef4444";
+      else if (anomalyCount > 0) col = "#f59e0b";
+      else col = "#e2853e";
+
+      const r = isPlan ? 14 : hasCap === true ? 12 : 10;
+
+      const el = document.createElement("div");
+      el.style.width = `${r}px`;
+      el.style.height = `${r}px`;
+      el.style.borderRadius = "999px";
+      el.style.background = col;
+      el.style.boxShadow = `0 0 0 ${isPlan ? 5 : 4}px ${col}33`;
+      el.style.cursor = "pointer";
+      el.title = f.name;
+
+      const marker = new mapboxRef.current.Marker({ element: el })
+        .setLngLat([f.lng, f.lat])
+        .addTo(mapRef.current);
+
+      if (onFacClick) {
+        el.addEventListener("click", () => onFacClick(f));
+      }
+
+      // Popup with capability badges
+      const capBadges = f.capabilities
+        ? Object.entries(f.capabilities)
+            .filter(([, v]) => v === true)
+            .slice(0, 4)
+            .map(
+              ([k]) =>
+                `<span style="display:inline-block;padding:1px 4px;margin:1px;border-radius:3px;background:rgba(226,133,62,.1);color:#e2853e;font-size:8px">${(CAP[k] || {}).i || ""} ${(CAP[k] || {}).l || k}</span>`
+            )
+            .join("")
+        : "";
+
+      const popup = new mapboxRef.current.Popup({
+        offset: 8,
+        closeButton: false,
+      }).setHTML(
+        `<div style="min-width:140px;font-family:IBM Plex Sans,sans-serif">` +
+          `<b style="font-size:12px">${f.name}</b>` +
+          `<div style="color:#8899ad;font-size:10px;margin:2px 0">${f.city || ""} ${f.region ? "· " + f.region : ""}</div>` +
+          capBadges +
+          (isPlan
+            ? '<div style="color:#10b981;font-size:10px;margin-top:4px">★ In mission plan</div>'
+            : "") +
+          `</div>`
+      );
+      marker.setPopup(popup);
+
+      markersRef.current.push(marker);
+      bounds?.extend([f.lng, f.lat]);
+    }
+
+    // Fit bounds to visible facilities
+    if (bounds && facilities.some((f) => f.lat && f.lng)) {
+      mapRef.current.fitBounds(bounds, { padding: 40, maxZoom: 8 });
+    }
+  }, [facilities, selCap, desertRegions, planFacs, onFacClick]);
 
   return (
-    <section className="panel map-panel">
-      <div className="map-header">
-        <div>
-          <strong>Ghana Field View</strong>
-          <div>{status}</div>
-        </div>
-        <div>{facilityCount} facilities</div>
-      </div>
-      <div ref={mapContainerRef} className="map-container" />
-      <div className="map-overlay">
-        <div className="map-pill">Facility density</div>
-        <div className="map-pill">Trust signals</div>
-      </div>
-    </section>
+    <div
+      ref={mapContainerRef}
+      style={{ width: "100%", height: "100%", borderRadius: "var(--rd)" }}
+      role="application"
+      aria-label="Ghana health facility map"
+    />
   );
 }

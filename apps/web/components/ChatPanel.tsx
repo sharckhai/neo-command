@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import ReactMarkdown from "react-markdown";
 import { parseEventStream } from "../lib/sse";
 import { ChatResponse, TraceEvent } from "../lib/types";
 
@@ -174,13 +173,9 @@ export default function ChatPanel() {
                 </span>
               )}
             </div>
-            {msg.role === "assistant" ? (
-              <div className="markdown-content">
-                <ReactMarkdown>{msg.content}</ReactMarkdown>
-              </div>
-            ) : (
-              <div>{msg.content}</div>
-            )}
+            <div className={msg.role === "assistant" ? "markdown-content" : ""}>
+              {msg.content}
+            </div>
             {msg.trace && msg.trace.length > 0 && (
               <TracePanel steps={msg.trace} />
             )}
