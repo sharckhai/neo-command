@@ -4,6 +4,8 @@ from typing import Any, List, Optional
 
 from pydantic import BaseModel, Field
 
+from server.tracing import TraceEvent
+
 
 class ChatRequest(BaseModel):
     message: str
@@ -32,3 +34,4 @@ class ChatResponse(BaseModel):
     citations: List[str] = Field(default_factory=list)
     map_actions: List[MapAction] = Field(default_factory=list)
     facilities: List[FacilitySummary] = Field(default_factory=list)
+    trace: List[TraceEvent] = Field(default_factory=list)

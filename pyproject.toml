@@ -19,6 +19,9 @@ dependencies = [
   "uvicorn",
   "sse-starlette",
   "openai-agents",
+  "mlflow",
+  "databricks-sdk",
+  "databricks-vectorsearch",
   "duckdb",
   "httpx",
 ]

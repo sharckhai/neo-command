@@ -23,8 +23,11 @@ class Settings:
     databricks_catalog: str = os.getenv("DATABRICKS_CATALOG", "hive_metastore")
     databricks_schema: str = os.getenv("DATABRICKS_SCHEMA", "virtuecommand")
     databricks_vector_endpoint: str = os.getenv("DATABRICKS_VECTOR_ENDPOINT", "vs")
+    databricks_genie_endpoint: str | None = os.getenv("DATABRICKS_GENIE_ENDPOINT")
 
     mapbox_token: str | None = os.getenv("MAPBOX_TOKEN")
+    mlflow_tracking_uri: str | None = os.getenv("MLFLOW_TRACKING_URI")
+    mlflow_experiment: str = os.getenv("MLFLOW_EXPERIMENT", "virtuecommand")
 
     def __post_init__(self) -> None:
         target = (self.pipeline_target or "local").lower()
