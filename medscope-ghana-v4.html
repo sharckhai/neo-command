@@ -1,928 +1,1386 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>MedScope Ghana — Agentic Health Facility Analyzer</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-:root{--bg:#060a10;--c1:#0c1219;--c2:#131b26;--c3:#1a2435;--bd:#1e2d42;--bf:#e2853e;--t1:#eaf0f8;--t2:#8899ad;--t3:#506278;--O:#e2853e;--Od:rgba(226,133,62,.1);--G:#10b981;--Gd:rgba(16,185,129,.08);--B:#3b82f6;--Bd:rgba(59,130,246,.1);--R:#ef4444;--Rd:rgba(239,68,68,.08);--A:#f59e0b;--Ad:rgba(245,158,11,.08);--P:#8b5cf6;--Pd:rgba(139,92,246,.08);--T:#06b6d4;--Td:rgba(6,182,212,.08);--rd:10px;--rs:6px}
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;overflow-x:hidden}
-body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse at 15% 20%,rgba(226,133,62,.03),transparent 50%),radial-gradient(ellipse at 85% 70%,rgba(16,185,129,.025),transparent 50%)}
-#root{position:relative;z-index:1}
-.mono{font-family:'IBM Plex Mono',monospace}
-::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
-.leaflet-container{background:var(--bg)!important;border-radius:var(--rd)}.leaflet-tile-pane{filter:brightness(.85) saturate(.5) contrast(1.1)}
-.leaflet-popup-content-wrapper{background:var(--c1);color:var(--t1);border:1px solid var(--bd);border-radius:var(--rs);box-shadow:0 16px 48px rgba(0,0,0,.7)}
-.leaflet-popup-tip{background:var(--c1)}.leaflet-popup-content{margin:10px 14px;font-family:'IBM Plex Sans';font-size:12px;line-height:1.5}
-@keyframes fu{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-@keyframes typeIn{from{width:0}to{width:100%}}
-.fu{animation:fu .3s ease-out forwards}.d1{animation-delay:.03s;opacity:0}.d2{animation-delay:.06s;opacity:0}.d3{animation-delay:.09s;opacity:0}
-.agent-step{border-left:2px solid var(--bd);padding:12px 0 12px 16px;position:relative;margin-left:8px}
-.agent-step::before{content:'';position:absolute;left:-5px;top:14px;width:8px;height:8px;border-radius:50%;background:var(--bd)}
-.agent-step.done::before{background:var(--G)}.agent-step.running::before{background:var(--O);animation:pulse 1s infinite}
-.agent-step.error::before{background:var(--R)}
-.desert-pulse{animation:pulse 2s infinite}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>MedScope Ghana — Agentic Health Facility Analyzer</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    :root {
+      /* NEO Palette */
+      --bg: #050505;
+      /* Deepest Black */
+      --c1: #0A0A0A;
+      /* Panel Background */
+      --c2: #111111;
+      /* Input/Item Background */
+      --c3: #1A1A1A;
+      /* Hover State */
+      --bd: #222222;
+      /* Subtle Border */
+
+      --t1: #E0E0E0;
+      /* Primary Text */
+      --t2: #909090;
+      /* Secondary Text */
+      --t3: #505050;
+      /* Tertiary Text / Placeholders */
+
+      /* Accents (Neon/Digital) */
+      --O: #FF5F1F;
+      /* Neon Orange (Brand) */
+      --Od: rgba(255, 95, 31, 0.1);
+
+      --G: #00FF94;
+      /* Cyber Green (Success/Safe) */
+      --Gd: rgba(0, 255, 148, 0.1);
+
+      --R: #FF2A2A;
+      /* Alert Red (Danger/Critical) */
+      --Rd: rgba(255, 42, 42, 0.1);
+
+      --A: #FFB800;
+      /* Warning Amber */
+      --Ad: rgba(255, 184, 0, 0.1);
+
+      --B: #0088FF;
+      /* Info Blue */
+      --Bd: rgba(0, 136, 255, 0.1);
+
+      --P: #8b5cf6;
+      --Pd: rgba(139, 92, 246, 0.1);
+
+      --T: #06b6d4;
+      --Td: rgba(6, 182, 212, 0.1);
+
+      --rd: 6px;
+      /* Tighter radius */
+      --rs: 4px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box
+    }
+
+    body {
+      font-family: 'IBM Plex Sans', sans-serif;
+      background: var(--bg);
+      color: var(--t1);
+      min-height: 100vh;
+      overflow-x: hidden
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background: radial-gradient(ellipse at 15% 20%, rgba(226, 133, 62, .03), transparent 50%), radial-gradient(ellipse at 85% 70%, rgba(16, 185, 129, .025), transparent 50%)
+    }
+
+    #root {
+      position: relative;
+      z-index: 1
+    }
+
+    .mono {
+      font-family: 'IBM Plex Mono', monospace
+    }
+
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--bd);
+      border-radius: 2px
+    }
+
+    .leaflet-container {
+      background: var(--bg) !important;
+      border-radius: var(--rd)
+    }
+
+    .leaflet-tile-pane {
+      filter: brightness(.85) saturate(.5) contrast(1.1)
+    }
+
+    .leaflet-popup-content-wrapper {
+      background: var(--c1);
+      color: var(--t1);
+      border: 1px solid var(--bd);
+      border-radius: var(--rs);
+      box-shadow: 0 16px 48px rgba(0, 0, 0, .7)
+    }
+
+    .leaflet-popup-tip {
+      background: var(--c1)
+    }
+
+    .leaflet-popup-content {
+      margin: 10px 14px;
+      font-family: 'IBM Plex Sans';
+      font-size: 12px;
+      line-height: 1.5
+    }
+
+    @keyframes fu {
+      from {
+        opacity: 0;
+        transform: translateY(8px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0)
+      }
+    }
+
+    @keyframes spin {
+      from {
+        transform: rotate(0)
+      }
+
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .5
+      }
+    }
+
+    @keyframes typeIn {
+      from {
+        width: 0
+      }
+
+      to {
+        width: 100%
+      }
+    }
+
+    .fu {
+      animation: fu .3s ease-out forwards
+    }
+
+    .d1 {
+      animation-delay: .03s;
+      opacity: 0
+    }
+
+    .d2 {
+      animation-delay: .06s;
+      opacity: 0
+    }
+
+    .d3 {
+      animation-delay: .09s;
+      opacity: 0
+    }
+
+    .agent-step {
+      border-left: 2px solid var(--bd);
+      padding: 12px 0 12px 16px;
+      position: relative;
+      margin-left: 8px
+    }
+
+    .agent-step::before {
+      content: '';
+      position: absolute;
+      left: -5px;
+      top: 14px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--bd)
+    }
+
+    .agent-step.done::before {
+      background: var(--G)
+    }
+
+    .agent-step.running::before {
+      background: var(--O);
+      animation: pulse 1s infinite
+    }
+
+    .agent-step.error::before {
+      background: var(--R)
+    }
+
+    .desert-pulse {
+      animation: pulse 2s infinite
+    }
+  </style>
 </head>
+
 <body>
-<div id="root"></div>
-<script type="text/babel">
-const{useState,useEffect,useRef,useCallback,useMemo}=React;
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
-/* ══════════════════════════════════════════════════════════════════════
-   GHANA GEOCODING
-   ══════════════════════════════════════════════════════════════════════ */
-// Accra neighborhoods for sub-city resolution
-const GN={
-  osu:[5.556,-.177],labone:[5.561,-.174],"east legon":[5.635,-.155],cantonments:[5.575,-.17],
-  airport:[5.605,-.170],"airport residential":[5.601,-.168],"airport city":[5.599,-.172],
-  roman:[5.573,-.192],ridge:[5.560,-.200],adabraka:[5.560,-.210],kokomlemle:[5.570,-.205],
-  "north ridge":[5.563,-.204],"west ridge":[5.558,-.208],tesano:[5.590,-.230],
-  dansoman:[5.548,-.259],darkuman:[5.570,-.250],kaneshie:[5.570,-.222],abeka:[5.582,-.230],
-  lapaz:[5.600,-.240],achimota:[5.620,-.230],dzorwulu:[5.600,-.200],abelemkpe:[5.610,-.200],
-  "north legon":[5.655,-.185],legon:[5.650,-.190],madina:[5.680,-.170],haatso:[5.660,-.210],
-  taifa:[5.645,-.250],dome:[5.650,-.230],kwabenya:[5.710,-.220],ashongman:[5.700,-.210],
-  agbogba:[5.670,-.180],adenta:[5.720,-.160],ashale:[5.670,-.130],"ashale-botwe":[5.670,-.130],
-  nungua:[5.590,-.070],spintex:[5.640,-.070],sakumono:[5.635,-.030],lashibi:[5.640,-.040],
-  teshie:[5.575,-.100],labadi:[5.560,-.150],nima:[5.580,-.200],maamobi:[5.578,-.208],
-  newtown:[5.570,-.212],"accra newtown":[5.570,-.212],circle:[5.570,-.210],
-  "kwame nkrumah":[5.555,-.205],jamestown:[5.538,-.208],usshertown:[5.541,-.205],
-  "osu oxford":[5.555,-.177],mataheko:[5.564,-.210],pig:[5.560,-.210],
-  "tantra hill":[5.632,-.228],pokuase:[5.670,-.300],amasaman:[5.700,-.300],
-  weija:[5.560,-.330],kasoa:[5.530,-.420],oyarifa:[5.710,-.155],abokobi:[5.730,-.170],
-  "parakuo":[5.645,-.235],"community 25":[5.680,-.010],"tema community":[5.670,-.010],
-  ring:[5.560,-.205],"ring road":[5.560,-.205],liberation:[5.570,-.185],
-  "east cantonments":[5.580,-.162],baatsona:[5.640,-.060],
-  "adenta municipality":[5.720,-.160],"accra central":[5.550,-.200],
-  kwadaso:[6.688,-1.645],atonsu:[6.660,-1.640],bantama:[6.700,-1.630],
-  suame:[6.710,-1.620],asafo:[6.695,-1.615],adum:[6.692,-1.618],
-  nhyiaeso:[6.685,-1.628],oforikrom:[6.682,-1.612],ayigya:[6.690,-1.590],
-  "kumasi south":[6.660,-1.630],dichemso:[6.700,-1.640],
-  "tema community 1":[5.675,-.015],"tema community 2":[5.670,-.010],
-};
-const GC={accra:[5.600,-.190],kumasi:[6.690,-1.624],tema:[5.670,-.017],takoradi:[4.898,-1.760],tamale:[9.408,-.839],"cape coast":[5.104,-1.247],sunyani:[7.335,-2.327],koforidua:[6.094,-.257],ho:[6.601,.471],techiman:[7.585,-1.938],tarkwa:[5.305,-1.993],obuasi:[6.202,-1.662],wa:[10.060,-2.510],bolgatanga:[10.786,-.851],ashaiman:[5.687,-.035],berekum:[7.453,-2.585],yendi:[9.445,-.010],osu:[5.556,-.177],"east legon":[5.635,-.155],dansoman:[5.548,-.259],madina:[5.680,-.170],dome:[5.650,-.230],cantonments:[5.575,-.170],adenta:[5.720,-.160],dodowa:[5.880,-.090],nungua:[5.590,-.070],worawora:[7.250,.370],bechem:[7.090,-2.030],apremdo:[4.870,-1.730],somanya:[6.100,-.020],damongo:[9.080,-1.820],nkwanta:[8.260,.510],dzodze:[6.340,.650],dompoase:[6.540,-1.630],"accra newtown":[5.570,-.212],juaso:[6.600,-1.100],pokoase:[5.670,-.300],"adenta-fafraha":[5.720,-.150],"darkuman-nyamekye":[5.570,-.250],mankessim:[5.276,-1.021],hohoe:[7.150,.470],acherensua:[7.070,-2.330],achimota:[5.620,-.230],abesim:[7.320,-2.340],atebubu:[7.750,-.980],"zabzugu tatale":[9.660,.020],bawku:[11.060,-.240],navrongo:[10.890,-1.090],keta:[5.920,.990],kasoa:[5.530,-.420],aflao:[6.120,1.190],akosombo:[6.290,.040],amasaman:[5.700,-.300],ankaful:[5.120,-1.250],nsawam:[5.810,-.349],winneba:[5.351,-.625],saltpond:[5.210,-1.060],elmina:[5.080,-1.350],kpando:[6.990,.290],effiduase:[6.740,-1.410],ejisu:[6.700,-1.460],nkawie:[6.730,-1.750],bole:[9.030,-2.490],gushegu:[9.870,-.090],savelugu:[9.620,-.830],bimbilla:[9.590,.050],salaga:[8.550,-.510],kintampo:[8.050,-1.730],nkoranza:[7.550,-1.720],wenchi:[7.740,-2.100],konongo:[6.620,-1.220],nkawkaw:[6.560,-.770],kibi:[6.160,-.550],aburi:[5.850,-.170],akropong:[5.970,-.080],suhum:[6.040,-.450],dunkwa:[5.960,-1.780],prestea:[5.430,-2.140],axim:[4.870,-2.240],sekondi:[4.920,-1.710],jasikan:[7.400,.450],dambai:[7.960,.190],bogoso:[5.530,-2.100],pokuase:[5.670,-.300],weija:[5.560,-.330],lapaz:[5.600,-.240],darkuman:[5.570,-.250],kaneshie:[5.570,-.222],nima:[5.580,-.200],legon:[5.650,-.190],haatso:[5.660,-.210],taifa:[5.645,-.250],spintex:[5.640,-.070],sakumono:[5.635,-.030],kpone:[5.700,.020],"accra central":[5.550,-.200],"greater accra":[5.600,-.190],"agona swedru":[5.530,-.700],asamankese:[5.870,-.670],"asokore mampong":[6.710,-1.600],agbogba:[5.670,-.180],adidome:[6.100,.470],akatsi:[6.130,.800],akwatia:[6.040,-.800],anloga:[5.790,.900],mampong:[7.060,-1.400],offinso:[7.070,-1.650],ejura:[7.380,-1.360],agogo:[6.800,-1.080],tesano:[5.590,-.230],kwadaso:[6.688,-1.645],oyarifa:[5.710,-.155],battor:[6.040,.350],bibiani:[6.460,-2.320],sogakope:[6.010,.597],tepa:[7.064,-1.893],"agona nkwanta":[5.870,-1.040],kwahu:[6.620,-.780],"sekondi-takoradi":[4.910,-1.760],goaso:[6.800,-2.520],abokobi:[5.730,-.170]};
-const GR={"greater accra":[5.600,-.190],"greater accra region":[5.600,-.190],ashanti:[6.750,-1.520],"ashanti region":[6.750,-1.520],western:[5.100,-2.000],"western region":[5.100,-2.000],central:[5.450,-1.000],"central region":[5.450,-1.000],eastern:[6.250,-.500],"eastern region":[6.250,-.500],volta:[6.800,.500],"volta region":[6.800,.500],northern:[9.500,-1.000],"northern region":[9.500,-1.000],"upper east":[10.700,-1.000],"upper east region":[10.700,-1.000],"upper west":[10.250,-2.150],"upper west region":[10.250,-2.150],"brong ahafo":[7.500,-1.500],"brong ahafo region":[7.500,-1.500],"bono east":[7.750,-1.050],"bono east region":[7.750,-1.050],ahafo:[6.900,-2.300],"ahafo region":[6.900,-2.300],bono:[7.500,-2.300],oti:[7.800,.300],"oti region":[7.800,.300],"western north":[6.300,-2.500],"western north region":[6.300,-2.500],"north east":[10.200,-.300],savannah:[9.000,-1.800],"savannah region":[9.000,-1.800],"ga east":[5.670,-.230],"ga east municipality":[5.670,-.230],"ga west":[5.630,-.310]};
-// Seeded jitter: spreads co-located facilities in a deterministic spiral
-const _jitterCache={};
-function jitter(lat,lng,seed){
-  const key=`${lat.toFixed(3)},${lng.toFixed(3)}`;
-  if(!_jitterCache[key])_jitterCache[key]=0;
-  const n=_jitterCache[key]++;
-  if(n===0)return[lat,lng];
-  // Golden-angle spiral
-  const r=0.004+0.002*Math.sqrt(n);
-  const a=n*2.3999;
-  return[lat+r*Math.cos(a),lng+r*Math.sin(a)];
-}
-// Enhanced geocode: checks neighborhood (address_line2), then city, then region
-function geo(city,region,addr2){
-  // Try address_line2 neighborhood first (catches "Tantra Hill", "Osu", "Spintex", etc.)
-  if(addr2&&addr2.toLowerCase().trim()!=='null'){
-    const nk=addr2.toLowerCase().trim().replace(/,.*$/,'').trim();
-    if(GN[nk])return jitter(...GN[nk],nk);
-    const nk2=nk.split(' ')[0];
-    if(GN[nk2])return jitter(...GN[nk2],nk2);
-  }
-  if(city&&city.toLowerCase().trim()!=='null'){
-    const k=city.toLowerCase().trim();
-    if(GC[k])return jitter(...GC[k],k);
-    const f=k.split(',')[0].split('-')[0].trim();
-    if(GC[f])return jitter(...GC[f],f);
-    // Check if city name matches a neighborhood
-    if(GN[k])return jitter(...GN[k],k);
-  }
-  if(region&&region.toLowerCase().trim()!=='null'){
-    const k=region.toLowerCase().trim();
-    if(GR[k])return jitter(...GR[k],k);
-  }
-  return[null,null];
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   HELPERS
-   ══════════════════════════════════════════════════════════════════════ */
-const sj=v=>{if(!v||v==='null'||v==='[]'||v==='')return[];try{const p=JSON.parse(v);return Array.isArray(p)?p.filter(x=>x&&String(x).trim()&&x!=='""'):[];}catch{return[];}};
-const cl=v=>(!v||v.trim().toLowerCase()==='null'||v.trim()==='')?null:v.trim();
-const hav=(a,b)=>{const R=6371,d=x=>x*Math.PI/180,dl=d(b[0]-a[0]),dn=d(b[1]-a[1]),x=Math.sin(dl/2)**2+Math.cos(d(a[0]))*Math.cos(d(b[0]))*Math.sin(dn/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))};
-
-/* ══════════════════════════════════════════════════════════════════════
-   CAPABILITY SCHEMA & RULE-BASED EXTRACTION (IDP Layer 1)
-   ══════════════════════════════════════════════════════════════════════ */
-const CAP={
-  emergency_24_7:{l:'24/7 Emergency',i:'🚨',g:'Emergency'},inpatient_beds:{l:'Beds',i:'🛏️',g:'Capacity',n:1},
-  icu:{l:'ICU',i:'🏥',g:'Critical Care'},icu_beds:{l:'ICU Beds',i:'🏥',g:'Critical Care',n:1},
-  nicu:{l:'NICU',i:'👶',g:'Neonatal'},operating_theatre:{l:'Theatre',i:'🔪',g:'Surgical'},
-  theatre_count:{l:'Theatres',i:'🔪',g:'Surgical',n:1},laboratory:{l:'Lab',i:'🔬',g:'Diagnostics'},
-  lab_24_7:{l:'24/7 Lab',i:'🔬',g:'Diagnostics'},pharmacy:{l:'Pharmacy',i:'💊',g:'Support'},
-  pharmacy_24_7:{l:'24/7 Pharmacy',i:'💊',g:'Support'},ambulance:{l:'Ambulance',i:'🚑',g:'Emergency'},
-  blood_bank:{l:'Blood Bank',i:'🩸',g:'Support'},xray:{l:'X-Ray',i:'☢️',g:'Imaging'},
-  ultrasound:{l:'Ultrasound',i:'📺',g:'Imaging'},ct_scan:{l:'CT Scan',i:'📡',g:'Imaging'},
-  mri:{l:'MRI',i:'🧲',g:'Imaging'},ecg:{l:'ECG',i:'💓',g:'Imaging'},mammography:{l:'Mammography',i:'🎗️',g:'Imaging'},
-  endoscopy:{l:'Endoscopy',i:'🔍',g:'Diagnostics'},dialysis:{l:'Dialysis',i:'💧',g:'Specialty'},
-  maternity:{l:'Maternity',i:'🤱',g:'Maternal'},csection:{l:'C-Section',i:'✂️',g:'Maternal'},
-  family_planning:{l:'Family Planning',i:'👨‍👩‍👧',g:'Maternal'},pediatrics:{l:'Paediatrics',i:'🧒',g:'Primary'},
-  dental:{l:'Dental',i:'🦷',g:'Primary'},ophthalmology:{l:'Eye Care',i:'👁️',g:'Specialty'},
-  ent:{l:'ENT',i:'👂',g:'Specialty'},mental_health:{l:'Mental Health',i:'🧠',g:'Specialty'},
-  physiotherapy:{l:'Physio',i:'🏃',g:'Specialty'},surgery_general:{l:'Surgery',i:'🩺',g:'Surgical'},
-  surgery_ortho:{l:'Orthopaedic',i:'🦴',g:'Surgical'},surgery_neuro:{l:'Neuro',i:'🧠',g:'Surgical'},
-  cardiology:{l:'Cardio',i:'❤️',g:'Specialty'},oncology:{l:'Oncology',i:'🎗️',g:'Specialty'},
-  fertility_ivf:{l:'IVF',i:'🌱',g:'Specialty'},telemedicine:{l:'Telemedicine',i:'📱',g:'Technology'},
-  nhis_accredited:{l:'NHIS',i:'✅',g:'Accreditation'},mortuary:{l:'Mortuary',i:'🏛️',g:'Support'},
-};
-
-/* ── Rule-based IDP extraction with per-step citation tracking ── */
-function ruleExtract(row, rowIndex){
-  const specs=sj(row.specialties),equip=sj(row.equipment),procs=sj(row.procedure),caps=sj(row.capability),
-        desc=(cl(row.description)||''),allText=[...equip,...procs,...caps,desc].join(' ').toLowerCase();
-  const c={},cf={},cit=[];
-  // Steps trace for IDP pipeline
-  const steps=[];
-  const set=(k,v,conf,src,step)=>{if(c[k]===undefined||conf>(cf[k]||0)){c[k]=v;cf[k]=conf;cit.push({field:k,snippet:src.slice(0,180),source:'csv',row:rowIndex,step});}};
-
-  // ── IDP Step 1: Specialty Tokenization ──
-  const specMaps=[];
-  const SMAP={internalmedicine:'internal',pediatrics:'pediatrics',cardiology:'cardiology',generalsurgery:'surgery_general',emergencymedicine:'emergency_24_7',orthopedicsurgery:'surgery_ortho',dentistry:'dental',ophthalmology:'ophthalmology',otolaryngology:'ent',psychiatry:'mental_health',neurosurgery:'surgery_neuro',medicaloncology:'oncology',neonatologyperinatalmedicine:'nicu',criticalcaremedicine:'icu',gastroenterology:'endoscopy',anesthesia:'operating_theatre'};
-  specs.forEach(s=>{
-    const sl=s.toLowerCase().replace(/\s/g,'');
-    const patterns=[
-      [/gynecol|obstet|matern/,'maternity',0.8],[/pediatr/,'pediatrics',0.8],[/cardio/,'cardiology',0.8],
-      [/oncol/,'oncology',0.8],[/surg/,'surgery_general',0.7],[/ophthal/,'ophthalmology',0.9],
-      [/denti/,'dental',0.9],[/otolaryngol/,'ent',0.9],[/psych/,'mental_health',0.8],
-      [/nephrol/,'dialysis',0.5],[/neonat/,'nicu',0.7],[/critical/,'icu',0.7],
-      [/infertil|reproductiveendocrin/,'fertility_ivf',0.8],[/radiol/,'xray',0.5],
-      [/emergency/,'emergency_24_7',0.6],[/orthop/,'surgery_ortho',0.8],
-      [/neurosurg/,'surgery_neuro',0.9],[/physiother|rehabilit/,'physiotherapy',0.7],
-      [/family.*plan|contraception/,'family_planning',0.7],
-    ];
-    if(SMAP[sl])set(SMAP[sl],true,0.7,`Specialty: ${s}`,'specialty_parse');
-    patterns.forEach(([re,k,cf2])=>{if(re.test(sl))set(k,true,cf2,`Specialty: ${s}`,'specialty_parse')});
-    specMaps.push({raw:s,mapped:Object.keys(c)});
-  });
-  steps.push({agent:'TokenizerAgent',action:'Parse specialties',input:`${specs.length} specialties`,output:`Mapped ${specMaps.length} → ${Object.keys(c).length} capabilities`,citations:cit.filter(x=>x.step==='specialty_parse')});
-
-  // ── IDP Step 2: Equipment NER ──
-  const eqBefore=Object.keys(c).length;
-  equip.forEach(e=>{const el=e.toLowerCase();
-    [[/x-?ray|xray|radiograph/,'xray'],[/ultrasound|ultra sound/,'ultrasound'],[/ct.?scan|ct.?imag/,'ct_scan'],
-     [/\bmri\b/,'mri'],[/ecg|electrocardiog/,'ecg'],[/mammog/,'mammography'],[/endoscop/,'endoscopy'],
-     [/operat|theatre|theater/,'operating_theatre'],[/ventilat/,'icu'],[/dialys/,'dialysis'],
-     [/ambulanc/,'ambulance'],[/laborat/,'laboratory'],[/isolette|incubat|neonatal/,'nicu'],
-     [/mortu/,'mortuary'],[/oct |fundus|slit.?lamp/,'ophthalmology'],[/dental.?chair/,'dental'],
-     [/audiom|tympan/,'ent'],[/echocardio/,'cardiology']
-    ].forEach(([re,k])=>{if(re.test(el))set(k,true,1.0,e,'equipment_ner')});
-  });
-  steps.push({agent:'NERAgent',action:'Extract from equipment',input:`${equip.length} equipment items`,output:`Found ${Object.keys(c).length-eqBefore} new capabilities`,citations:cit.filter(x=>x.step==='equipment_ner')});
-
-  // ── IDP Step 3: Procedure Classification ──
-  const prBefore=Object.keys(c).length;
-  procs.forEach(p=>{const pl=p.toLowerCase();
-    [[/x-?ray|xray|radiograph/,'xray'],[/ultrasound|scan/,'ultrasound'],[/\bct\b/,'ct_scan'],[/\bmri\b/,'mri'],
-     [/ecg|electrocardiog/,'ecg'],[/mammog/,'mammography'],[/endoscop|colonoscop|gastroscop/,'endoscopy'],
-     [/dialys|hemodia/,'dialysis'],[/surg/,'surgery_general'],[/c-section|caesarean|cesarean/,'csection'],
-     [/ivf|in.?vitro|insemination|icsi/,'fertility_ivf'],[/cataract|lasik|eye.?surg/,'ophthalmology'],
-     [/root.?canal|dental|filling/,'dental'],[/deliver|labour|labor|prenatal|antenatal/,'maternity'],
-     [/physiother/,'physiotherapy']
-    ].forEach(([re,k])=>{if(re.test(pl))set(k,true,1.0,p,'procedure_classify')});
-  });
-  steps.push({agent:'ClassifierAgent',action:'Classify procedures',input:`${procs.length} procedures`,output:`Found ${Object.keys(c).length-prBefore} new capabilities`,citations:cit.filter(x=>x.step==='procedure_classify')});
-
-  // ── IDP Step 4: Capability Semantic Extraction ──
-  const capBefore=Object.keys(c).length;
-  caps.forEach(cap=>{const cl2=cap.toLowerCase();
-    if(cl2.includes('24/7')||cl2.includes('24 hour')||cl2.includes('always open')){
-      if(cl2.includes('emergency')||cl2.includes('accident'))set('emergency_24_7',true,1.0,cap,'capability_extract');
-      if(cl2.includes('lab'))set('lab_24_7',true,1.0,cap,'capability_extract');
-      if(cl2.includes('pharm'))set('pharmacy_24_7',true,1.0,cap,'capability_extract');
+    /* ══════════════════════════════════════════════════════════════════════
+       GHANA GEOCODING
+       ══════════════════════════════════════════════════════════════════════ */
+    // Accra neighborhoods for sub-city resolution
+    const GN = {
+      osu: [5.556, -.177], labone: [5.561, -.174], "east legon": [5.635, -.155], cantonments: [5.575, -.17],
+      airport: [5.605, -.170], "airport residential": [5.601, -.168], "airport city": [5.599, -.172],
+      roman: [5.573, -.192], ridge: [5.560, -.200], adabraka: [5.560, -.210], kokomlemle: [5.570, -.205],
+      "north ridge": [5.563, -.204], "west ridge": [5.558, -.208], tesano: [5.590, -.230],
+      dansoman: [5.548, -.259], darkuman: [5.570, -.250], kaneshie: [5.570, -.222], abeka: [5.582, -.230],
+      lapaz: [5.600, -.240], achimota: [5.620, -.230], dzorwulu: [5.600, -.200], abelemkpe: [5.610, -.200],
+      "north legon": [5.655, -.185], legon: [5.650, -.190], madina: [5.680, -.170], haatso: [5.660, -.210],
+      taifa: [5.645, -.250], dome: [5.650, -.230], kwabenya: [5.710, -.220], ashongman: [5.700, -.210],
+      agbogba: [5.670, -.180], adenta: [5.720, -.160], ashale: [5.670, -.130], "ashale-botwe": [5.670, -.130],
+      nungua: [5.590, -.070], spintex: [5.640, -.070], sakumono: [5.635, -.030], lashibi: [5.640, -.040],
+      teshie: [5.575, -.100], labadi: [5.560, -.150], nima: [5.580, -.200], maamobi: [5.578, -.208],
+      newtown: [5.570, -.212], "accra newtown": [5.570, -.212], circle: [5.570, -.210],
+      "kwame nkrumah": [5.555, -.205], jamestown: [5.538, -.208], usshertown: [5.541, -.205],
+      "osu oxford": [5.555, -.177], mataheko: [5.564, -.210], pig: [5.560, -.210],
+      "tantra hill": [5.632, -.228], pokuase: [5.670, -.300], amasaman: [5.700, -.300],
+      weija: [5.560, -.330], kasoa: [5.530, -.420], oyarifa: [5.710, -.155], abokobi: [5.730, -.170],
+      "parakuo": [5.645, -.235], "community 25": [5.680, -.010], "tema community": [5.670, -.010],
+      ring: [5.560, -.205], "ring road": [5.560, -.205], liberation: [5.570, -.185],
+      "east cantonments": [5.580, -.162], baatsona: [5.640, -.060],
+      "adenta municipality": [5.720, -.160], "accra central": [5.550, -.200],
+      kwadaso: [6.688, -1.645], atonsu: [6.660, -1.640], bantama: [6.700, -1.630],
+      suame: [6.710, -1.620], asafo: [6.695, -1.615], adum: [6.692, -1.618],
+      nhyiaeso: [6.685, -1.628], oforikrom: [6.682, -1.612], ayigya: [6.690, -1.590],
+      "kumasi south": [6.660, -1.630], dichemso: [6.700, -1.640],
+      "tema community 1": [5.675, -.015], "tema community 2": [5.670, -.010],
+    };
+    const GC = { accra: [5.600, -.190], kumasi: [6.690, -1.624], tema: [5.670, -.017], takoradi: [4.898, -1.760], tamale: [9.408, -.839], "cape coast": [5.104, -1.247], sunyani: [7.335, -2.327], koforidua: [6.094, -.257], ho: [6.601, .471], techiman: [7.585, -1.938], tarkwa: [5.305, -1.993], obuasi: [6.202, -1.662], wa: [10.060, -2.510], bolgatanga: [10.786, -.851], ashaiman: [5.687, -.035], berekum: [7.453, -2.585], yendi: [9.445, -.010], osu: [5.556, -.177], "east legon": [5.635, -.155], dansoman: [5.548, -.259], madina: [5.680, -.170], dome: [5.650, -.230], cantonments: [5.575, -.170], adenta: [5.720, -.160], dodowa: [5.880, -.090], nungua: [5.590, -.070], worawora: [7.250, .370], bechem: [7.090, -2.030], apremdo: [4.870, -1.730], somanya: [6.100, -.020], damongo: [9.080, -1.820], nkwanta: [8.260, .510], dzodze: [6.340, .650], dompoase: [6.540, -1.630], "accra newtown": [5.570, -.212], juaso: [6.600, -1.100], pokoase: [5.670, -.300], "adenta-fafraha": [5.720, -.150], "darkuman-nyamekye": [5.570, -.250], mankessim: [5.276, -1.021], hohoe: [7.150, .470], acherensua: [7.070, -2.330], achimota: [5.620, -.230], abesim: [7.320, -2.340], atebubu: [7.750, -.980], "zabzugu tatale": [9.660, .020], bawku: [11.060, -.240], navrongo: [10.890, -1.090], keta: [5.920, .990], kasoa: [5.530, -.420], aflao: [6.120, 1.190], akosombo: [6.290, .040], amasaman: [5.700, -.300], ankaful: [5.120, -1.250], nsawam: [5.810, -.349], winneba: [5.351, -.625], saltpond: [5.210, -1.060], elmina: [5.080, -1.350], kpando: [6.990, .290], effiduase: [6.740, -1.410], ejisu: [6.700, -1.460], nkawie: [6.730, -1.750], bole: [9.030, -2.490], gushegu: [9.870, -.090], savelugu: [9.620, -.830], bimbilla: [9.590, .050], salaga: [8.550, -.510], kintampo: [8.050, -1.730], nkoranza: [7.550, -1.720], wenchi: [7.740, -2.100], konongo: [6.620, -1.220], nkawkaw: [6.560, -.770], kibi: [6.160, -.550], aburi: [5.850, -.170], akropong: [5.970, -.080], suhum: [6.040, -.450], dunkwa: [5.960, -1.780], prestea: [5.430, -2.140], axim: [4.870, -2.240], sekondi: [4.920, -1.710], jasikan: [7.400, .450], dambai: [7.960, .190], bogoso: [5.530, -2.100], pokuase: [5.670, -.300], weija: [5.560, -.330], lapaz: [5.600, -.240], darkuman: [5.570, -.250], kaneshie: [5.570, -.222], nima: [5.580, -.200], legon: [5.650, -.190], haatso: [5.660, -.210], taifa: [5.645, -.250], spintex: [5.640, -.070], sakumono: [5.635, -.030], kpone: [5.700, .020], "accra central": [5.550, -.200], "greater accra": [5.600, -.190], "agona swedru": [5.530, -.700], asamankese: [5.870, -.670], "asokore mampong": [6.710, -1.600], agbogba: [5.670, -.180], adidome: [6.100, .470], akatsi: [6.130, .800], akwatia: [6.040, -.800], anloga: [5.790, .900], mampong: [7.060, -1.400], offinso: [7.070, -1.650], ejura: [7.380, -1.360], agogo: [6.800, -1.080], tesano: [5.590, -.230], kwadaso: [6.688, -1.645], oyarifa: [5.710, -.155], battor: [6.040, .350], bibiani: [6.460, -2.320], sogakope: [6.010, .597], tepa: [7.064, -1.893], "agona nkwanta": [5.870, -1.040], kwahu: [6.620, -.780], "sekondi-takoradi": [4.910, -1.760], goaso: [6.800, -2.520], abokobi: [5.730, -.170] };
+    const GR = { "greater accra": [5.600, -.190], "greater accra region": [5.600, -.190], ashanti: [6.750, -1.520], "ashanti region": [6.750, -1.520], western: [5.100, -2.000], "western region": [5.100, -2.000], central: [5.450, -1.000], "central region": [5.450, -1.000], eastern: [6.250, -.500], "eastern region": [6.250, -.500], volta: [6.800, .500], "volta region": [6.800, .500], northern: [9.500, -1.000], "northern region": [9.500, -1.000], "upper east": [10.700, -1.000], "upper east region": [10.700, -1.000], "upper west": [10.250, -2.150], "upper west region": [10.250, -2.150], "brong ahafo": [7.500, -1.500], "brong ahafo region": [7.500, -1.500], "bono east": [7.750, -1.050], "bono east region": [7.750, -1.050], ahafo: [6.900, -2.300], "ahafo region": [6.900, -2.300], bono: [7.500, -2.300], oti: [7.800, .300], "oti region": [7.800, .300], "western north": [6.300, -2.500], "western north region": [6.300, -2.500], "north east": [10.200, -.300], savannah: [9.000, -1.800], "savannah region": [9.000, -1.800], "ga east": [5.670, -.230], "ga east municipality": [5.670, -.230], "ga west": [5.630, -.310] };
+    // Seeded jitter: spreads co-located facilities in a deterministic spiral
+    const _jitterCache = {};
+    function jitter(lat, lng, seed) {
+      const key = `${lat.toFixed(3)},${lng.toFixed(3)}`;
+      if (!_jitterCache[key]) _jitterCache[key] = 0;
+      const n = _jitterCache[key]++;
+      if (n === 0) return [lat, lng];
+      // Golden-angle spiral
+      const r = 0.004 + 0.002 * Math.sqrt(n);
+      const a = n * 2.3999;
+      return [lat + r * Math.cos(a), lng + r * Math.sin(a)];
     }
-    [[/nhis/,'nhis_accredited'],[/ambulanc/,'ambulance'],[/mortu/,'mortuary'],[/telemedicine|tele-/,'telemedicine'],
-     [/\bicu\b(?!.*nicu)/,'icu'],[/nicu|neonatal.?intensive/,'nicu'],[/blood.?bank/,'blood_bank'],
-     [/pharmacy/,'pharmacy'],[/laborat/,'laboratory'],[/maternity|delivery.?ward|labour.?ward/,'maternity'],
-     [/operating.?theat|operating.?room/,'operating_theatre'],[/dialys/,'dialysis']
-    ].forEach(([re,k])=>{if(re.test(cl2))set(k,true,0.9,cap,'capability_extract')});
-    const bedM=cl2.match(/(\d+)[\s-]*bed/);if(bedM)set('inpatient_beds',parseInt(bedM[1]),0.9,cap,'capability_extract');
-    const icuM=cl2.match(/(\d+)\s*icu\s*bed/);if(icuM)set('icu_beds',parseInt(icuM[1]),0.9,cap,'capability_extract');
-    const thM=cl2.match(/(\d+)\s*(?:operat|theat)/);if(thM)set('theatre_count',parseInt(thM[1]),0.9,cap,'capability_extract');
-  });
-  if(allText.includes('pharmacy'))set('pharmacy',true,0.4,desc.slice(0,100),'capability_extract');
-  if(allText.includes('laboratory')||allText.includes('lab test'))set('laboratory',true,0.4,desc.slice(0,100),'capability_extract');
-  steps.push({agent:'SemanticAgent',action:'Extract from capabilities & description',input:`${caps.length} capabilities + description`,output:`Found ${Object.keys(c).length-capBefore} new capabilities`,citations:cit.filter(x=>x.step==='capability_extract')});
+    // Enhanced geocode: checks neighborhood (address_line2), then city, then region
+    function geo(city, region, addr2) {
+      // Try address_line2 neighborhood first (catches "Tantra Hill", "Osu", "Spintex", etc.)
+      if (addr2 && addr2.toLowerCase().trim() !== 'null') {
+        const nk = addr2.toLowerCase().trim().replace(/,.*$/, '').trim();
+        if (GN[nk]) return jitter(...GN[nk], nk);
+        const nk2 = nk.split(' ')[0];
+        if (GN[nk2]) return jitter(...GN[nk2], nk2);
+      }
+      if (city && city.toLowerCase().trim() !== 'null') {
+        const k = city.toLowerCase().trim();
+        if (GC[k]) return jitter(...GC[k], k);
+        const f = k.split(',')[0].split('-')[0].trim();
+        if (GC[f]) return jitter(...GC[f], f);
+        // Check if city name matches a neighborhood
+        if (GN[k]) return jitter(...GN[k], k);
+      }
+      if (region && region.toLowerCase().trim() !== 'null') {
+        const k = region.toLowerCase().trim();
+        if (GR[k]) return jitter(...GR[k], k);
+      }
+      return [null, null];
+    }
 
-  // ── IDP Step 5: Anomaly Detection / Verification ──
-  const anomalies=[];const fType=(cl(row.facilityTypeId)||'').toLowerCase();
-  if(fType==='hospital'){
-    if(!c.laboratory)anomalies.push({type:'missing_expected',field:'laboratory',message:'Hospital without lab',severity:'warning'});
-    if(!c.pharmacy)anomalies.push({type:'missing_expected',field:'pharmacy',message:'Hospital without pharmacy',severity:'warning'});
-  }
-  if(c.surgery_general&&!c.operating_theatre)anomalies.push({type:'conflict',field:'surgery_general',message:'Surgery without operating theatre',severity:'warning'});
-  if(c.csection&&!c.operating_theatre)anomalies.push({type:'conflict',field:'csection',message:'C-section without operating theatre',severity:'warning'});
-  if(c.icu&&!c.inpatient_beds)anomalies.push({type:'conflict',field:'icu',message:'ICU without bed count',severity:'warning'});
-  if(c.nicu&&!c.maternity)anomalies.push({type:'conflict',field:'nicu',message:'NICU without maternity',severity:'warning'});
-  if(c.dialysis&&!c.laboratory)anomalies.push({type:'conflict',field:'dialysis',message:'Dialysis without lab',severity:'warning'});
-  if(fType==='clinic'&&(c.ct_scan||c.mri)){const f2=c.ct_scan?'ct_scan':'mri';if((cf[f2]||0)<.8)anomalies.push({type:'high_claim',field:f2,message:`Clinic claims ${f2} (low evidence)`,severity:'error'});}
-  steps.push({agent:'VerifierAgent',action:'Cross-reference & anomaly detection',input:`${Object.keys(c).length} capabilities, facility type: ${fType}`,output:`${anomalies.length} anomalies detected`,citations:anomalies.map(a=>({field:a.field,snippet:a.message,source:'rule',step:'verify'}))});
+    /* ══════════════════════════════════════════════════════════════════════
+       HELPERS
+       ══════════════════════════════════════════════════════════════════════ */
+    const sj = v => { if (!v || v === 'null' || v === '[]' || v === '') return []; try { const p = JSON.parse(v); return Array.isArray(p) ? p.filter(x => x && String(x).trim() && x !== '""') : []; } catch { return []; } };
+    const cl = v => (!v || v.trim().toLowerCase() === 'null' || v.trim() === '') ? null : v.trim();
+    const hav = (a, b) => { const R = 6371, d = x => x * Math.PI / 180, dl = d(b[0] - a[0]), dn = d(b[1] - a[1]), x = Math.sin(dl / 2) ** 2 + Math.cos(d(a[0])) * Math.cos(d(b[0])) * Math.sin(dn / 2) ** 2; return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x)) };
 
-  return{capabilities:c,confidence:cf,citations:cit,anomalies,steps,
-    specialties_list:specs,equipment_list:equip,procedures_list:procs,capabilities_list:caps};
-}
+    /* ══════════════════════════════════════════════════════════════════════
+       CAPABILITY SCHEMA & RULE-BASED EXTRACTION (IDP Layer 1)
+       ══════════════════════════════════════════════════════════════════════ */
+    const CAP = {
+      emergency_24_7: { l: '24/7 Emergency', i: '🚨', g: 'Emergency' }, inpatient_beds: { l: 'Beds', i: '🛏️', g: 'Capacity', n: 1 },
+      icu: { l: 'ICU', i: '🏥', g: 'Critical Care' }, icu_beds: { l: 'ICU Beds', i: '🏥', g: 'Critical Care', n: 1 },
+      nicu: { l: 'NICU', i: '👶', g: 'Neonatal' }, operating_theatre: { l: 'Theatre', i: '🔪', g: 'Surgical' },
+      theatre_count: { l: 'Theatres', i: '🔪', g: 'Surgical', n: 1 }, laboratory: { l: 'Lab', i: '🔬', g: 'Diagnostics' },
+      lab_24_7: { l: '24/7 Lab', i: '🔬', g: 'Diagnostics' }, pharmacy: { l: 'Pharmacy', i: '💊', g: 'Support' },
+      pharmacy_24_7: { l: '24/7 Pharmacy', i: '💊', g: 'Support' }, ambulance: { l: 'Ambulance', i: '🚑', g: 'Emergency' },
+      blood_bank: { l: 'Blood Bank', i: '🩸', g: 'Support' }, xray: { l: 'X-Ray', i: '☢️', g: 'Imaging' },
+      ultrasound: { l: 'Ultrasound', i: '📺', g: 'Imaging' }, ct_scan: { l: 'CT Scan', i: '📡', g: 'Imaging' },
+      mri: { l: 'MRI', i: '🧲', g: 'Imaging' }, ecg: { l: 'ECG', i: '💓', g: 'Imaging' }, mammography: { l: 'Mammography', i: '🎗️', g: 'Imaging' },
+      endoscopy: { l: 'Endoscopy', i: '🔍', g: 'Diagnostics' }, dialysis: { l: 'Dialysis', i: '💧', g: 'Specialty' },
+      maternity: { l: 'Maternity', i: '🤱', g: 'Maternal' }, csection: { l: 'C-Section', i: '✂️', g: 'Maternal' },
+      family_planning: { l: 'Family Planning', i: '👨‍👩‍👧', g: 'Maternal' }, pediatrics: { l: 'Paediatrics', i: '🧒', g: 'Primary' },
+      dental: { l: 'Dental', i: '🦷', g: 'Primary' }, ophthalmology: { l: 'Eye Care', i: '👁️', g: 'Specialty' },
+      ent: { l: 'ENT', i: '👂', g: 'Specialty' }, mental_health: { l: 'Mental Health', i: '🧠', g: 'Specialty' },
+      physiotherapy: { l: 'Physio', i: '🏃', g: 'Specialty' }, surgery_general: { l: 'Surgery', i: '🩺', g: 'Surgical' },
+      surgery_ortho: { l: 'Orthopaedic', i: '🦴', g: 'Surgical' }, surgery_neuro: { l: 'Neuro', i: '🧠', g: 'Surgical' },
+      cardiology: { l: 'Cardio', i: '❤️', g: 'Specialty' }, oncology: { l: 'Oncology', i: '🎗️', g: 'Specialty' },
+      fertility_ivf: { l: 'IVF', i: '🌱', g: 'Specialty' }, telemedicine: { l: 'Telemedicine', i: '📱', g: 'Technology' },
+      nhis_accredited: { l: 'NHIS', i: '✅', g: 'Accreditation' }, mortuary: { l: 'Mortuary', i: '🏛️', g: 'Support' },
+    };
 
-/* ══════════════════════════════════════════════════════════════════════
-   CSV PARSING & DEDUP
-   ══════════════════════════════════════════════════════════════════════ */
-function parseCSV(csvText){
-  Object.keys(_jitterCache).forEach(k=>delete _jitterCache[k]); // Reset jitter on re-parse
-  const{data}=Papa.parse(csvText,{header:true,skipEmptyLines:true});
-  const groups={};
-  data.forEach((r,i)=>{const pk=r.pk_unique_id||r.name||String(i);(groups[pk]=groups[pk]||[]).push({...r,_rowIndex:i+2});});
-  return Object.entries(groups).map(([pk,rows])=>{
-    const base={...rows[0]};
-    if(rows.length>1){
-      const sets={s:new Set(),e:new Set(),p:new Set(),c:new Set(),d:new Set()};
-      rows.forEach(r=>{sj(r.specialties).forEach(x=>sets.s.add(x));sj(r.equipment).forEach(x=>sets.e.add(x));sj(r.procedure).forEach(x=>sets.p.add(x));sj(r.capability).forEach(x=>sets.c.add(x));const d=cl(r.description);if(d)sets.d.add(d);
-        ['address_city','address_stateOrRegion','address_line1','email','officialWebsite','facilityTypeId','operatorTypeId','capacity','numberDoctors'].forEach(k=>{if(cl(r[k])&&!cl(base[k]))base[k]=r[k]});
+    /* ── Rule-based IDP extraction with per-step citation tracking ── */
+    function ruleExtract(row, rowIndex) {
+      const specs = sj(row.specialties), equip = sj(row.equipment), procs = sj(row.procedure), caps = sj(row.capability),
+        desc = (cl(row.description) || ''), allText = [...equip, ...procs, ...caps, desc].join(' ').toLowerCase();
+      const c = {}, cf = {}, cit = [];
+      // Steps trace for IDP pipeline
+      const steps = [];
+      const set = (k, v, conf, src, step) => { if (c[k] === undefined || conf > (cf[k] || 0)) { c[k] = v; cf[k] = conf; cit.push({ field: k, snippet: src.slice(0, 180), source: 'csv', row: rowIndex, step }); } };
+
+      // ── IDP Step 1: Specialty Tokenization ──
+      const specMaps = [];
+      const SMAP = { internalmedicine: 'internal', pediatrics: 'pediatrics', cardiology: 'cardiology', generalsurgery: 'surgery_general', emergencymedicine: 'emergency_24_7', orthopedicsurgery: 'surgery_ortho', dentistry: 'dental', ophthalmology: 'ophthalmology', otolaryngology: 'ent', psychiatry: 'mental_health', neurosurgery: 'surgery_neuro', medicaloncology: 'oncology', neonatologyperinatalmedicine: 'nicu', criticalcaremedicine: 'icu', gastroenterology: 'endoscopy', anesthesia: 'operating_theatre' };
+      specs.forEach(s => {
+        const sl = s.toLowerCase().replace(/\s/g, '');
+        const patterns = [
+          [/gynecol|obstet|matern/, 'maternity', 0.8], [/pediatr/, 'pediatrics', 0.8], [/cardio/, 'cardiology', 0.8],
+          [/oncol/, 'oncology', 0.8], [/surg/, 'surgery_general', 0.7], [/ophthal/, 'ophthalmology', 0.9],
+          [/denti/, 'dental', 0.9], [/otolaryngol/, 'ent', 0.9], [/psych/, 'mental_health', 0.8],
+          [/nephrol/, 'dialysis', 0.5], [/neonat/, 'nicu', 0.7], [/critical/, 'icu', 0.7],
+          [/infertil|reproductiveendocrin/, 'fertility_ivf', 0.8], [/radiol/, 'xray', 0.5],
+          [/emergency/, 'emergency_24_7', 0.6], [/orthop/, 'surgery_ortho', 0.8],
+          [/neurosurg/, 'surgery_neuro', 0.9], [/physiother|rehabilit/, 'physiotherapy', 0.7],
+          [/family.*plan|contraception/, 'family_planning', 0.7],
+        ];
+        if (SMAP[sl]) set(SMAP[sl], true, 0.7, `Specialty: ${s}`, 'specialty_parse');
+        patterns.forEach(([re, k, cf2]) => { if (re.test(sl)) set(k, true, cf2, `Specialty: ${s}`, 'specialty_parse') });
+        specMaps.push({ raw: s, mapped: Object.keys(c) });
       });
-      base.specialties=JSON.stringify([...sets.s]);base.equipment=JSON.stringify([...sets.e]);
-      base.procedure=JSON.stringify([...sets.p]);base.capability=JSON.stringify([...sets.c]);
-      if(sets.d.size)base.description=[...sets.d].join(' | ');
+      steps.push({ agent: 'TokenizerAgent', action: 'Parse specialties', input: `${specs.length} specialties`, output: `Mapped ${specMaps.length} → ${Object.keys(c).length} capabilities`, citations: cit.filter(x => x.step === 'specialty_parse') });
+
+      // ── IDP Step 2: Equipment NER ──
+      const eqBefore = Object.keys(c).length;
+      equip.forEach(e => {
+        const el = e.toLowerCase();
+        [[/x-?ray|xray|radiograph/, 'xray'], [/ultrasound|ultra sound/, 'ultrasound'], [/ct.?scan|ct.?imag/, 'ct_scan'],
+        [/\bmri\b/, 'mri'], [/ecg|electrocardiog/, 'ecg'], [/mammog/, 'mammography'], [/endoscop/, 'endoscopy'],
+        [/operat|theatre|theater/, 'operating_theatre'], [/ventilat/, 'icu'], [/dialys/, 'dialysis'],
+        [/ambulanc/, 'ambulance'], [/laborat/, 'laboratory'], [/isolette|incubat|neonatal/, 'nicu'],
+        [/mortu/, 'mortuary'], [/oct |fundus|slit.?lamp/, 'ophthalmology'], [/dental.?chair/, 'dental'],
+        [/audiom|tympan/, 'ent'], [/echocardio/, 'cardiology']
+        ].forEach(([re, k]) => { if (re.test(el)) set(k, true, 1.0, e, 'equipment_ner') });
+      });
+      steps.push({ agent: 'NERAgent', action: 'Extract from equipment', input: `${equip.length} equipment items`, output: `Found ${Object.keys(c).length - eqBefore} new capabilities`, citations: cit.filter(x => x.step === 'equipment_ner') });
+
+      // ── IDP Step 3: Procedure Classification ──
+      const prBefore = Object.keys(c).length;
+      procs.forEach(p => {
+        const pl = p.toLowerCase();
+        [[/x-?ray|xray|radiograph/, 'xray'], [/ultrasound|scan/, 'ultrasound'], [/\bct\b/, 'ct_scan'], [/\bmri\b/, 'mri'],
+        [/ecg|electrocardiog/, 'ecg'], [/mammog/, 'mammography'], [/endoscop|colonoscop|gastroscop/, 'endoscopy'],
+        [/dialys|hemodia/, 'dialysis'], [/surg/, 'surgery_general'], [/c-section|caesarean|cesarean/, 'csection'],
+        [/ivf|in.?vitro|insemination|icsi/, 'fertility_ivf'], [/cataract|lasik|eye.?surg/, 'ophthalmology'],
+        [/root.?canal|dental|filling/, 'dental'], [/deliver|labour|labor|prenatal|antenatal/, 'maternity'],
+        [/physiother/, 'physiotherapy']
+        ].forEach(([re, k]) => { if (re.test(pl)) set(k, true, 1.0, p, 'procedure_classify') });
+      });
+      steps.push({ agent: 'ClassifierAgent', action: 'Classify procedures', input: `${procs.length} procedures`, output: `Found ${Object.keys(c).length - prBefore} new capabilities`, citations: cit.filter(x => x.step === 'procedure_classify') });
+
+      // ── IDP Step 4: Capability Semantic Extraction ──
+      const capBefore = Object.keys(c).length;
+      caps.forEach(cap => {
+        const cl2 = cap.toLowerCase();
+        if (cl2.includes('24/7') || cl2.includes('24 hour') || cl2.includes('always open')) {
+          if (cl2.includes('emergency') || cl2.includes('accident')) set('emergency_24_7', true, 1.0, cap, 'capability_extract');
+          if (cl2.includes('lab')) set('lab_24_7', true, 1.0, cap, 'capability_extract');
+          if (cl2.includes('pharm')) set('pharmacy_24_7', true, 1.0, cap, 'capability_extract');
+        }
+        [[/nhis/, 'nhis_accredited'], [/ambulanc/, 'ambulance'], [/mortu/, 'mortuary'], [/telemedicine|tele-/, 'telemedicine'],
+        [/\bicu\b(?!.*nicu)/, 'icu'], [/nicu|neonatal.?intensive/, 'nicu'], [/blood.?bank/, 'blood_bank'],
+        [/pharmacy/, 'pharmacy'], [/laborat/, 'laboratory'], [/maternity|delivery.?ward|labour.?ward/, 'maternity'],
+        [/operating.?theat|operating.?room/, 'operating_theatre'], [/dialys/, 'dialysis']
+        ].forEach(([re, k]) => { if (re.test(cl2)) set(k, true, 0.9, cap, 'capability_extract') });
+        const bedM = cl2.match(/(\d+)[\s-]*bed/); if (bedM) set('inpatient_beds', parseInt(bedM[1]), 0.9, cap, 'capability_extract');
+        const icuM = cl2.match(/(\d+)\s*icu\s*bed/); if (icuM) set('icu_beds', parseInt(icuM[1]), 0.9, cap, 'capability_extract');
+        const thM = cl2.match(/(\d+)\s*(?:operat|theat)/); if (thM) set('theatre_count', parseInt(thM[1]), 0.9, cap, 'capability_extract');
+      });
+      if (allText.includes('pharmacy')) set('pharmacy', true, 0.4, desc.slice(0, 100), 'capability_extract');
+      if (allText.includes('laboratory') || allText.includes('lab test')) set('laboratory', true, 0.4, desc.slice(0, 100), 'capability_extract');
+      steps.push({ agent: 'SemanticAgent', action: 'Extract from capabilities & description', input: `${caps.length} capabilities + description`, output: `Found ${Object.keys(c).length - capBefore} new capabilities`, citations: cit.filter(x => x.step === 'capability_extract') });
+
+      // ── IDP Step 5: Anomaly Detection / Verification ──
+      const anomalies = []; const fType = (cl(row.facilityTypeId) || '').toLowerCase();
+      if (fType === 'hospital') {
+        if (!c.laboratory) anomalies.push({ type: 'missing_expected', field: 'laboratory', message: 'Hospital without lab', severity: 'warning' });
+        if (!c.pharmacy) anomalies.push({ type: 'missing_expected', field: 'pharmacy', message: 'Hospital without pharmacy', severity: 'warning' });
+      }
+      if (c.surgery_general && !c.operating_theatre) anomalies.push({ type: 'conflict', field: 'surgery_general', message: 'Surgery without operating theatre', severity: 'warning' });
+      if (c.csection && !c.operating_theatre) anomalies.push({ type: 'conflict', field: 'csection', message: 'C-section without operating theatre', severity: 'warning' });
+      if (c.icu && !c.inpatient_beds) anomalies.push({ type: 'conflict', field: 'icu', message: 'ICU without bed count', severity: 'warning' });
+      if (c.nicu && !c.maternity) anomalies.push({ type: 'conflict', field: 'nicu', message: 'NICU without maternity', severity: 'warning' });
+      if (c.dialysis && !c.laboratory) anomalies.push({ type: 'conflict', field: 'dialysis', message: 'Dialysis without lab', severity: 'warning' });
+      if (fType === 'clinic' && (c.ct_scan || c.mri)) { const f2 = c.ct_scan ? 'ct_scan' : 'mri'; if ((cf[f2] || 0) < .8) anomalies.push({ type: 'high_claim', field: f2, message: `Clinic claims ${f2} (low evidence)`, severity: 'error' }); }
+      steps.push({ agent: 'VerifierAgent', action: 'Cross-reference & anomaly detection', input: `${Object.keys(c).length} capabilities, facility type: ${fType}`, output: `${anomalies.length} anomalies detected`, citations: anomalies.map(a => ({ field: a.field, snippet: a.message, source: 'rule', step: 'verify' })) });
+
+      return {
+        capabilities: c, confidence: cf, citations: cit, anomalies, steps,
+        specialties_list: specs, equipment_list: equip, procedures_list: procs, capabilities_list: caps
+      };
     }
-    const city=cl(base.address_city),region=cl(base.address_stateOrRegion),addr2=cl(base.address_line2),[lat,lng]=geo(city,region,addr2);
-    const phones=sj(base.phone_numbers),addr=[cl(base.address_line1),cl(base.address_line2),cl(base.address_line3)].filter(Boolean).join(', ');
-    const ext=ruleExtract(base,rows[0]._rowIndex);
-    return{id:pk,name:cl(base.name)||`Facility_${pk}`,lat,lng,city,region,
-      address:addr||null,facility_type:cl(base.facilityTypeId),operator_type:cl(base.operatorTypeId),
-      phone:phones.slice(0,2).join(', ')||null,email:cl(base.email),website:cl(base.officialWebsite),
-      description:cl(base.description),source_url:cl(base.source_url),
-      ...ext,raw:base,aiExtracted:false,_rows:rows.map(r=>r._rowIndex)};
-  });
-}
 
-/* ══════════════════════════════════════════════════════════════════════
-   TF-IDF RAG (client-side vector search, no API needed)
-   ══════════════════════════════════════════════════════════════════════ */
-class TFIDFIndex{
-  constructor(){this.docs=[];this.idf={};this.tfidf=[];}
-  tokenize(text){return(text||'').toLowerCase().replace(/[^a-z0-9\s]/g,'').split(/\s+/).filter(t=>t.length>2);}
-  build(facilities){
-    this.docs=facilities.map(f=>{
-      const text=[f.name,f.city,f.region,f.facility_type,...(f.specialties_list||[]),...(f.equipment_list||[]),...(f.procedures_list||[]),...(f.capabilities_list||[]),(f.description||'')].join(' ');
-      return this.tokenize(text);
-    });
-    // Compute IDF
-    const N=this.docs.length,df={};
-    this.docs.forEach(d=>{const seen=new Set(d);seen.forEach(t=>{df[t]=(df[t]||0)+1;})});
-    Object.keys(df).forEach(t=>{this.idf[t]=Math.log(N/(df[t]+1))+1;});
-    // Compute TF-IDF vectors
-    this.tfidf=this.docs.map(d=>{const tf={},len=d.length;d.forEach(t=>{tf[t]=(tf[t]||0)+1/len;});const vec={};Object.keys(tf).forEach(t=>{vec[t]=tf[t]*(this.idf[t]||0);});return vec;});
-  }
-  search(query,topK=10){
-    const qtokens=this.tokenize(query),qtf={},qlen=qtokens.length;
-    qtokens.forEach(t=>{qtf[t]=(qtf[t]||0)+1/qlen;});
-    const qvec={};Object.keys(qtf).forEach(t=>{qvec[t]=qtf[t]*(this.idf[t]||0);});
-    const scores=this.tfidf.map((dv,i)=>{
-      let dot=0,dNorm=0,qNorm=0;
-      const allKeys=new Set([...Object.keys(dv),...Object.keys(qvec)]);
-      allKeys.forEach(k=>{const a=dv[k]||0,b=qvec[k]||0;dot+=a*b;dNorm+=a*a;qNorm+=b*b;});
-      return{index:i,score:dNorm&&qNorm?dot/Math.sqrt(dNorm*qNorm):0};
-    });
-    return scores.sort((a,b)=>b.score-a.score).slice(0,topK).filter(s=>s.score>0);
-  }
-}
-const ragIndex=new TFIDFIndex();
+    /* ══════════════════════════════════════════════════════════════════════
+       CSV PARSING & DEDUP
+       ══════════════════════════════════════════════════════════════════════ */
+    function parseCSV(csvText) {
+      Object.keys(_jitterCache).forEach(k => delete _jitterCache[k]); // Reset jitter on re-parse
+      const { data } = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+      const groups = {};
+      data.forEach((r, i) => { const pk = r.pk_unique_id || r.name || String(i); (groups[pk] = groups[pk] || []).push({ ...r, _rowIndex: i + 2 }); });
+      return Object.entries(groups).map(([pk, rows]) => {
+        const base = { ...rows[0] };
+        if (rows.length > 1) {
+          const sets = { s: new Set(), e: new Set(), p: new Set(), c: new Set(), d: new Set() };
+          rows.forEach(r => {
+            sj(r.specialties).forEach(x => sets.s.add(x)); sj(r.equipment).forEach(x => sets.e.add(x)); sj(r.procedure).forEach(x => sets.p.add(x)); sj(r.capability).forEach(x => sets.c.add(x)); const d = cl(r.description); if (d) sets.d.add(d);
+            ['address_city', 'address_stateOrRegion', 'address_line1', 'email', 'officialWebsite', 'facilityTypeId', 'operatorTypeId', 'capacity', 'numberDoctors'].forEach(k => { if (cl(r[k]) && !cl(base[k])) base[k] = r[k] });
+          });
+          base.specialties = JSON.stringify([...sets.s]); base.equipment = JSON.stringify([...sets.e]);
+          base.procedure = JSON.stringify([...sets.p]); base.capability = JSON.stringify([...sets.c]);
+          if (sets.d.size) base.description = [...sets.d].join(' | ');
+        }
+        const city = cl(base.address_city), region = cl(base.address_stateOrRegion), addr2 = cl(base.address_line2), [lat, lng] = geo(city, region, addr2);
+        const phones = sj(base.phone_numbers), addr = [cl(base.address_line1), cl(base.address_line2), cl(base.address_line3)].filter(Boolean).join(', ');
+        const ext = ruleExtract(base, rows[0]._rowIndex);
+        return {
+          id: pk, name: cl(base.name) || `Facility_${pk}`, lat, lng, city, region,
+          address: addr || null, facility_type: cl(base.facilityTypeId), operator_type: cl(base.operatorTypeId),
+          phone: phones.slice(0, 2).join(', ') || null, email: cl(base.email), website: cl(base.officialWebsite),
+          description: cl(base.description), source_url: cl(base.source_url),
+          ...ext, raw: base, aiExtracted: false, _rows: rows.map(r => r._rowIndex)
+        };
+      });
+    }
 
-/* ══════════════════════════════════════════════════════════════════════
-   OPENAI AGENT SYSTEM (multi-step with traces)
-   ══════════════════════════════════════════════════════════════════════ */
-async function callLLM(messages,apiKey,json=true){
-  if(!apiKey)throw new Error('OpenAI API key not set. Click the 🔑 button in the top-right to set your key.');
-  let res;
-  try{
-    res=await fetch('https://api.openai.com/v1/chat/completions',{
-      method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
-      body:JSON.stringify({model:'gpt-4o-mini',max_tokens:2000,temperature:0,messages,
-        ...(json?{response_format:{type:'json_object'}}:{})})
-    });
-  }catch(netErr){
-    throw new Error(`Network error: ${netErr.message}. Check your internet connection.`);
-  }
-  if(!res.ok){
-    const errBody=await res.text().catch(()=>'');
-    if(res.status===401)throw new Error('Invalid API key. Check your OpenAI key and try again.');
-    if(res.status===429)throw new Error('Rate limited. Wait a moment and try again.');
-    if(res.status===402)throw new Error('OpenAI billing issue. Check your account has credits.');
-    throw new Error(`OpenAI API error ${res.status}: ${errBody.slice(0,200)}`);
-  }
-  const d=await res.json();
-  if(d.error)throw new Error(d.error.message||'Unknown OpenAI error');
-  if(!d.choices||!d.choices.length)throw new Error('No response from OpenAI');
-  const raw=d.choices[0].message.content;
-  if(json){
-    try{return JSON.parse(raw)}
-    catch{const m=raw.match(/```(?:json)?\s*([\s\S]*?)```/);if(m)try{return JSON.parse(m[1])}catch{};return{text:raw,answer:raw}}
-  }
-  return raw;
-}
+    const Badge = ({ children, color = 'accent', style: s = {} }) => { const C = { accent: { bg: 'var(--Od)', c: 'var(--O)', b: 'var(--O)' }, green: { bg: 'var(--Gd)', c: 'var(--G)', b: 'var(--G)' }, blue: { bg: 'var(--Bd)', c: 'var(--B)', b: 'var(--B)' }, red: { bg: 'var(--Rd)', c: 'var(--R)', b: 'var(--R)' }, amber: { bg: 'var(--Ad)', c: 'var(--A)', b: 'var(--A)' }, purple: { bg: 'rgba(139,92,246,.1)', c: '#A78BFA', b: '#A78BFA' }, teal: { bg: 'rgba(6,182,212,.1)', c: '#22D3EE', b: '#22D3EE' }, ghost: { bg: 'var(--c2)', c: 'var(--t2)', b: 'var(--bd)' } }[color] || { bg: 'var(--Od)', c: 'var(--O)', b: 'var(--O)' }; return <span className="mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 6px', borderRadius: 2, background: C.bg, color: C.c, border: `1px solid ${C.b}40`, fontSize: 9, fontWeight: 500, letterSpacing: '0.02em', ...s }}>{children}</span> };
+    const Card = ({ children, style: s = {}, className: cn = '', ...p }) => <div style={{ background: 'var(--c1)', border: '1px solid var(--bd)', borderRadius: 'var(--rd)', padding: 16, ...s }} className={cn} {...p}>{children}</div>;
+    const Btn = ({ children, v = 'primary', sm, disabled: d, onClick, style: s = {}, icon }) => { const base = { display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--mono)', fontWeight: 600, cursor: d ? 'not-allowed' : 'pointer', border: '1px solid transparent', borderRadius: 'var(--rs)', transition: 'all .15s', opacity: d ? .5 : 1, fontSize: sm ? 11 : 12, padding: sm ? '4px 10px' : '8px 16px', height: sm ? 28 : 36 }; const vs = { primary: { background: 'var(--t1)', color: 'var(--bg)', borderColor: 'var(--t1)' }, secondary: { background: 'var(--c2)', color: 'var(--t1)', borderColor: 'var(--bd)' }, ghost: { background: 'transparent', color: 'var(--t2)' }, accent: { background: 'var(--O)', color: '#fff', borderColor: 'var(--O)' } }; return <button style={{ ...base, ...vs[v], ...s }} disabled={d} onClick={onClick} onMouseEnter={e => { if (!d) e.currentTarget.style.filter = 'brightness(1.1)' }} onMouseLeave={e => e.currentTarget.style.filter = 'none'}>{icon && <span style={{ fontSize: 14 }}>{icon}</span>}{children}</button> };
+    /* ══════════════════════════════════════════════════════════════════════
+       TF-IDF RAG (client-side vector search, no API needed)
+       ══════════════════════════════════════════════════════════════════════ */
+    class TFIDFIndex {
+      constructor() { this.docs = []; this.idf = {}; this.tfidf = []; }
+      tokenize(text) { return (text || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(t => t.length > 2); }
+      build(facilities) {
+        this.docs = facilities.map(f => {
+          const text = [f.name, f.city, f.region, f.facility_type, ...(f.specialties_list || []), ...(f.equipment_list || []), ...(f.procedures_list || []), ...(f.capabilities_list || []), (f.description || '')].join(' ');
+          return this.tokenize(text);
+        });
+        // Compute IDF
+        const N = this.docs.length, df = {};
+        this.docs.forEach(d => { const seen = new Set(d); seen.forEach(t => { df[t] = (df[t] || 0) + 1; }) });
+        Object.keys(df).forEach(t => { this.idf[t] = Math.log(N / (df[t] + 1)) + 1; });
+        // Compute TF-IDF vectors
+        this.tfidf = this.docs.map(d => { const tf = {}, len = d.length; d.forEach(t => { tf[t] = (tf[t] || 0) + 1 / len; }); const vec = {}; Object.keys(tf).forEach(t => { vec[t] = tf[t] * (this.idf[t] || 0); }); return vec; });
+      }
+      search(query, topK = 10) {
+        const qtokens = this.tokenize(query), qtf = {}, qlen = qtokens.length;
+        qtokens.forEach(t => { qtf[t] = (qtf[t] || 0) + 1 / qlen; });
+        const qvec = {}; Object.keys(qtf).forEach(t => { qvec[t] = qtf[t] * (this.idf[t] || 0); });
+        const scores = this.tfidf.map((dv, i) => {
+          let dot = 0, dNorm = 0, qNorm = 0;
+          const allKeys = new Set([...Object.keys(dv), ...Object.keys(qvec)]);
+          allKeys.forEach(k => { const a = dv[k] || 0, b = qvec[k] || 0; dot += a * b; dNorm += a * a; qNorm += b * b; });
+          return { index: i, score: dNorm && qNorm ? dot / Math.sqrt(dNorm * qNorm) : 0 };
+        });
+        return scores.sort((a, b) => b.score - a.score).slice(0, topK).filter(s => s.score > 0);
+      }
+    }
+    const ragIndex = new TFIDFIndex();
 
-async function runMissionPlan(request,facilities,apiKey,onStep){
-  const steps=[];const t=()=>Date.now();
-  const addStep=(agent,action,input,output,citations=[],status='done')=>{
-    const s={agent,action,input,output,citations:Array.isArray(citations)?citations:[],status,time:t()};steps.push(s);onStep([...steps]);return s;
-  };
-  const updateLast=(updates)=>{steps[steps.length-1]={...steps[steps.length-1],...updates};onStep([...steps])};
+    /* ══════════════════════════════════════════════════════════════════════
+       OPENAI AGENT SYSTEM (multi-step with traces)
+       ══════════════════════════════════════════════════════════════════════ */
+    async function callLLM(messages, apiKey, json = true) {
+      if (!apiKey) throw new Error('OpenAI API key not set. Click the 🔑 button in the top-right to set your key.');
+      let res;
+      try {
+        res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini', max_tokens: 2000, temperature: 0, messages,
+            ...(json ? { response_format: { type: 'json_object' } } : {})
+          })
+        });
+      } catch (netErr) {
+        throw new Error(`Network error: ${netErr.message}. Check your internet connection.`);
+      }
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => '');
+        if (res.status === 401) throw new Error('Invalid API key. Check your OpenAI key and try again.');
+        if (res.status === 429) throw new Error('Rate limited. Wait a moment and try again.');
+        if (res.status === 402) throw new Error('OpenAI billing issue. Check your account has credits.');
+        throw new Error(`OpenAI API error ${res.status}: ${errBody.slice(0, 200)}`);
+      }
+      const d = await res.json();
+      if (d.error) throw new Error(d.error.message || 'Unknown OpenAI error');
+      if (!d.choices || !d.choices.length) throw new Error('No response from OpenAI');
+      const raw = d.choices[0].message.content;
+      if (json) {
+        try { return JSON.parse(raw) }
+        catch { const m = raw.match(/```(?:json)?\s*([\s\S]*?)```/); if (m) try { return JSON.parse(m[1]) } catch { }; return { text: raw, answer: raw } }
+      }
+      return raw;
+    }
 
-  try{
-  // Step 1: Intent Parsing
-  addStep('IntentAgent','Parsing mission request',request,'Analyzing...',[],'running');
-  const intent=await callLLM([
-    {role:'system',content:'Parse a healthcare planning request into JSON: {required_capabilities:[list of capability keys from: emergency_24_7,icu,nicu,operating_theatre,laboratory,pharmacy,ambulance,blood_bank,xray,ultrasound,ct_scan,mri,ecg,mammography,endoscopy,dialysis,maternity,csection,family_planning,pediatrics,dental,ophthalmology,ent,mental_health,physiotherapy,surgery_general,surgery_ortho,surgery_neuro,cardiology,oncology,fertility_ivf,telemedicine,nhis_accredited], target_regions:[region names or "all"], priority:"emergency"|"planned"|"screening", population_focus:str, summary:str}'},
-    {role:'user',content:request}
-  ],apiKey);
-  updateLast({output:JSON.stringify(intent),status:'done',citations:[{field:'intent',snippet:request,source:'user_input'}]});
+    async function runMissionPlan(request, facilities, apiKey, onStep) {
+      const steps = []; const t = () => Date.now();
+      const addStep = (agent, action, input, output, citations = [], status = 'done') => {
+        const s = { agent, action, input, output, citations: Array.isArray(citations) ? citations : [], status, time: t() }; steps.push(s); onStep([...steps]); return s;
+      };
+      const updateLast = (updates) => { steps[steps.length - 1] = { ...steps[steps.length - 1], ...updates }; onStep([...steps]) };
 
-  // Step 2: RAG Search
-  addStep('SearchAgent','Searching facility database (TF-IDF RAG)',`Query: ${(intent.required_capabilities||[]).join(', ')}`,`Searching ${facilities.length} facilities...`,[{field:'search',snippet:`RAG index over ${facilities.length} facilities`,source:'tfidf_index'}],'running');
-  const searchQ=[...(intent.required_capabilities||[]).map(k=>(CAP[k]||{}).l||k),...(intent.target_regions||[])].join(' ');
-  const ragResults=ragIndex.search(searchQ,30);
-  const candidates=ragResults.map(r=>facilities[r.index]).filter(Boolean);
+      try {
+        // Step 1: Intent Parsing
+        addStep('IntentAgent', 'Parsing mission request', request, 'Analyzing...', [], 'running');
+        const intent = await callLLM([
+          { role: 'system', content: 'Parse a healthcare planning request into JSON: {required_capabilities:[list of capability keys from: emergency_24_7,icu,nicu,operating_theatre,laboratory,pharmacy,ambulance,blood_bank,xray,ultrasound,ct_scan,mri,ecg,mammography,endoscopy,dialysis,maternity,csection,family_planning,pediatrics,dental,ophthalmology,ent,mental_health,physiotherapy,surgery_general,surgery_ortho,surgery_neuro,cardiology,oncology,fertility_ivf,telemedicine,nhis_accredited], target_regions:[region names or "all"], priority:"emergency"|"planned"|"screening", population_focus:str, summary:str}' },
+          { role: 'user', content: request }
+        ], apiKey);
+        updateLast({ output: JSON.stringify(intent), status: 'done', citations: [{ field: 'intent', snippet: request, source: 'user_input' }] });
 
-  // Filter by capabilities
-  const capSet=new Set(intent.required_capabilities||[]);
-  const scored=candidates.map(f=>{
-    const caps=f.capabilities||{};
-    const matched=Object.keys(caps).filter(k=>capSet.has(k)&&(caps[k]===true||(typeof caps[k]==='number'&&caps[k]>0)));
-    const regionMatch=(intent.target_regions||[]).some(r=>r==='all'||(f.region||'').toLowerCase().includes(r.toLowerCase())||(f.city||'').toLowerCase().includes(r.toLowerCase()));
-    return{...f,matchScore:matched.length/Math.max(capSet.size,1),matched,regionMatch};
-  }).sort((a,b)=>(b.matchScore+b.regionMatch)-(a.matchScore+a.regionMatch));
+        // Step 2: RAG Search
+        addStep('SearchAgent', 'Searching facility database (TF-IDF RAG)', `Query: ${(intent.required_capabilities || []).join(', ')}`, `Searching ${facilities.length} facilities...`, [{ field: 'search', snippet: `RAG index over ${facilities.length} facilities`, source: 'tfidf_index' }], 'running');
+        const searchQ = [...(intent.required_capabilities || []).map(k => (CAP[k] || {}).l || k), ...(intent.target_regions || [])].join(' ');
+        const ragResults = ragIndex.search(searchQ, 30);
+        const candidates = ragResults.map(r => facilities[r.index]).filter(Boolean);
 
-  updateLast({output:`Found ${scored.length} candidates, ${scored.filter(s=>s.matchScore>0).length} with matching capabilities`,status:'done',
-    citations:scored.slice(0,5).map(f=>({field:'facility',snippet:`${f.name} (${f.city}): ${(f.matched||[]).join(',')} [score:${f.matchScore.toFixed(2)}]`,source:'rag_search',row:f._rows?.[0]}))});
+        // Filter by capabilities
+        const capSet = new Set(intent.required_capabilities || []);
+        const scored = candidates.map(f => {
+          const caps = f.capabilities || {};
+          const matched = Object.keys(caps).filter(k => capSet.has(k) && (caps[k] === true || (typeof caps[k] === 'number' && caps[k] > 0)));
+          const regionMatch = (intent.target_regions || []).some(r => r === 'all' || (f.region || '').toLowerCase().includes(r.toLowerCase()) || (f.city || '').toLowerCase().includes(r.toLowerCase()));
+          return { ...f, matchScore: matched.length / Math.max(capSet.size, 1), matched, regionMatch };
+        }).sort((a, b) => (b.matchScore + b.regionMatch) - (a.matchScore + a.regionMatch));
 
-  // Step 3: Gap Analysis
-  addStep('GapAgent','Identifying coverage gaps','Analyzing regional coverage...','',[],  'running');
-  const regionFacs={};facilities.forEach(f=>{const r=f.region||f.city||'Unknown';(regionFacs[r]=regionFacs[r]||[]).push(f)});
-  const gaps=[];const targetRegions=intent.target_regions||['all'];
-  Object.entries(regionFacs).forEach(([reg,facs])=>{
-    const isTarget=targetRegions.includes('all')||targetRegions.some(t=>reg.toLowerCase().includes(t.toLowerCase()));
-    if(!isTarget)return;
-    (intent.required_capabilities||[]).forEach(cap=>{
-      const hasCap=facs.some(f=>(f.capabilities||{})[cap]===true);
-      if(!hasCap)gaps.push({region:reg,capability:cap,label:(CAP[cap]||{}).l||cap,facilityCount:facs.length});
-    });
-  });
-  updateLast({output:`${gaps.length} coverage gaps identified across ${Object.keys(regionFacs).length} regions`,status:'done',
-    citations:gaps.slice(0,8).map(g=>({field:'gap',snippet:`${g.region}: missing ${g.label} (${g.facilityCount} facilities in region)`,source:'gap_analysis'}))});
+        updateLast({
+          output: `Found ${scored.length} candidates, ${scored.filter(s => s.matchScore > 0).length} with matching capabilities`, status: 'done',
+          citations: scored.slice(0, 5).map(f => ({ field: 'facility', snippet: `${f.name} (${f.city}): ${(f.matched || []).join(',')} [score:${f.matchScore.toFixed(2)}]`, source: 'rag_search', row: f._rows?.[0] }))
+        });
 
-  // Step 4: AI Recommendation
-  addStep('PlannerAgent','Generating deployment recommendations',`${scored.filter(s=>s.matchScore>0).length} capable facilities, ${gaps.length} gaps`,'',[],  'running');
-  const topFacs=scored.filter(s=>s.matchScore>0).slice(0,10).map(f=>`${f.name} (${f.city||'?'}, ${f.region||'?'}): has [${(f.matched||[]).join(',')}], match=${(f.matchScore*100).toFixed(0)}%`);
-  const gapSummary=gaps.slice(0,10).map(g=>`${g.region}: missing ${g.label}`);
+        // Step 3: Gap Analysis
+        addStep('GapAgent', 'Identifying coverage gaps', 'Analyzing regional coverage...', '', [], 'running');
+        const regionFacs = {}; facilities.forEach(f => { const r = f.region || f.city || 'Unknown'; (regionFacs[r] = regionFacs[r] || []).push(f) });
+        const gaps = []; const targetRegions = intent.target_regions || ['all'];
+        Object.entries(regionFacs).forEach(([reg, facs]) => {
+          const isTarget = targetRegions.includes('all') || targetRegions.some(t => reg.toLowerCase().includes(t.toLowerCase()));
+          if (!isTarget) return;
+          (intent.required_capabilities || []).forEach(cap => {
+            const hasCap = facs.some(f => (f.capabilities || {})[cap] === true);
+            if (!hasCap) gaps.push({ region: reg, capability: cap, label: (CAP[cap] || {}).l || cap, facilityCount: facs.length });
+          });
+        });
+        updateLast({
+          output: `${gaps.length} coverage gaps identified across ${Object.keys(regionFacs).length} regions`, status: 'done',
+          citations: gaps.slice(0, 8).map(g => ({ field: 'gap', snippet: `${g.region}: missing ${g.label} (${g.facilityCount} facilities in region)`, source: 'gap_analysis' }))
+        });
 
-  const plan=await callLLM([
-    {role:'system',content:'You are a healthcare deployment planner for Ghana. Given facility data and coverage gaps, create a deployment plan. Return JSON: {executive_summary:str, recommendations:[{action:str, location:str, rationale:str, priority:"high"|"medium"|"low", facilities_involved:[str]}], gap_mitigation:[{gap:str, solution:str}], estimated_impact:str, risk_factors:[str]}'},
-    {role:'user',content:`Mission: ${request}\nIntent: ${JSON.stringify(intent)}\nTop Facilities:\n${topFacs.join('\n')}\nCoverage Gaps:\n${gapSummary.join('\n')}`}
-  ],apiKey);
+        // Step 4: AI Recommendation
+        addStep('PlannerAgent', 'Generating deployment recommendations', `${scored.filter(s => s.matchScore > 0).length} capable facilities, ${gaps.length} gaps`, '', [], 'running');
+        const topFacs = scored.filter(s => s.matchScore > 0).slice(0, 10).map(f => `${f.name} (${f.city || '?'}, ${f.region || '?'}): has [${(f.matched || []).join(',')}], match=${(f.matchScore * 100).toFixed(0)}%`);
+        const gapSummary = gaps.slice(0, 10).map(g => `${g.region}: missing ${g.label}`);
 
-  updateLast({output:plan.executive_summary||'Plan generated',status:'done',
-    citations:(plan.recommendations||[]).map(r=>({field:'recommendation',snippet:`${r.action} at ${r.location} [${r.priority}]`,source:'ai_planner'}))});
+        const plan = await callLLM([
+          { role: 'system', content: 'You are a healthcare deployment planner for Ghana. Given facility data and coverage gaps, create a deployment plan. Return JSON: {executive_summary:str, recommendations:[{action:str, location:str, rationale:str, priority:"high"|"medium"|"low", facilities_involved:[str]}], gap_mitigation:[{gap:str, solution:str}], estimated_impact:str, risk_factors:[str]}' },
+          { role: 'user', content: `Mission: ${request}\nIntent: ${JSON.stringify(intent)}\nTop Facilities:\n${topFacs.join('\n')}\nCoverage Gaps:\n${gapSummary.join('\n')}` }
+        ], apiKey);
 
-  // Step 5: Report Synthesis
-  addStep('ReportAgent','Synthesizing final report','Compiling all findings...','Mission plan complete',[{field:'report',snippet:`${steps.length} agent steps, ${scored.filter(s=>s.matchScore>0).length} facilities, ${gaps.length} gaps`,source:'synthesis'}],'done');
+        updateLast({
+          output: plan.executive_summary || 'Plan generated', status: 'done',
+          citations: (plan.recommendations || []).map(r => ({ field: 'recommendation', snippet: `${r.action} at ${r.location} [${r.priority}]`, source: 'ai_planner' }))
+        });
 
-  return{intent,facilities:scored.filter(s=>s.matchScore>0).slice(0,15),gaps,plan,steps};
+        // Step 5: Report Synthesis
+        addStep('ReportAgent', 'Synthesizing final report', 'Compiling all findings...', 'Mission plan complete', [{ field: 'report', snippet: `${steps.length} agent steps, ${scored.filter(s => s.matchScore > 0).length} facilities, ${gaps.length} gaps`, source: 'synthesis' }], 'done');
 
-  }catch(err){
-    console.error('Mission plan error:',err);
-    updateLast({output:`Error: ${err.message}`,status:'error',citations:[]});
-    throw err;
-  }
-}
+        return { intent, facilities: scored.filter(s => s.matchScore > 0).slice(0, 15), gaps, plan, steps };
 
-async function runFacilityQuery(question,facilities,apiKey,onStep){
-  const steps=[];const t=()=>Date.now();
-  const addStep=(agent,action,input,output,citations=[],status='done')=>{const s={agent,action,input,output,citations:Array.isArray(citations)?citations:[],status,time:t()};steps.push(s);onStep([...steps]);};
-  const updateLast=(u)=>{steps[steps.length-1]={...steps[steps.length-1],...u};onStep([...steps])};
+      } catch (err) {
+        console.error('Mission plan error:', err);
+        updateLast({ output: `Error: ${err.message}`, status: 'error', citations: [] });
+        throw err;
+      }
+    }
 
-  try{
-  // Step 1: Parse query
-  addStep('ParseAgent','Understanding query',question,'Parsing...',[],'running');
-  const parsed=await callLLM([
-    {role:'system',content:'Parse a healthcare facility query. Return JSON: {capabilities_needed:[str], regions:[str], facility_type:str|null, query_type:"search"|"compare"|"coverage"|"general", rewritten_query:str}'},
-    {role:'user',content:question}
-  ],apiKey);
-  updateLast({output:parsed.rewritten_query||JSON.stringify(parsed),status:'done',citations:[{field:'query',snippet:question,source:'user'}]});
+    async function runFacilityQuery(question, facilities, apiKey, onStep) {
+      const steps = []; const t = () => Date.now();
+      const addStep = (agent, action, input, output, citations = [], status = 'done') => { const s = { agent, action, input, output, citations: Array.isArray(citations) ? citations : [], status, time: t() }; steps.push(s); onStep([...steps]); };
+      const updateLast = (u) => { steps[steps.length - 1] = { ...steps[steps.length - 1], ...u }; onStep([...steps]) };
 
-  // Step 2: RAG Search
-  addStep('RAGAgent','Vector search over facilities',`TF-IDF search: "${parsed.rewritten_query||question}"`,'',[{field:'index',snippet:`${facilities.length} facilities indexed`,source:'tfidf'}],'running');
-  const results=ragIndex.search(parsed.rewritten_query||question,20);
-  const matched=results.map(r=>facilities[r.index]).filter(Boolean);
-  updateLast({output:`${matched.length} relevant facilities found`,status:'done',
-    citations:matched.slice(0,5).map(f=>({field:'match',snippet:`${f.name} (${f.city||'?'}) score=${results.find(r=>facilities[r.index]===f)?.score.toFixed(3)}`,source:'rag',row:f._rows?.[0]}))});
+      try {
+        // Step 1: Parse query
+        addStep('ParseAgent', 'Understanding query', question, 'Parsing...', [], 'running');
+        const parsed = await callLLM([
+          { role: 'system', content: 'Parse a healthcare facility query. Return JSON: {capabilities_needed:[str], regions:[str], facility_type:str|null, query_type:"search"|"compare"|"coverage"|"general", rewritten_query:str}' },
+          { role: 'user', content: question }
+        ], apiKey);
+        updateLast({ output: parsed.rewritten_query || JSON.stringify(parsed), status: 'done', citations: [{ field: 'query', snippet: question, source: 'user' }] });
 
-  // Step 3: Filter & Rank
-  addStep('FilterAgent','Applying capability filters',`Checking ${(parsed.capabilities_needed||[]).join(', ')}`,'',[{field:'filter',snippet:`Filter by: ${JSON.stringify(parsed.capabilities_needed)}`,source:'parse'}],'running');
-  const capNeeded=new Set(parsed.capabilities_needed||[]);
-  let filtered=matched;
-  if(capNeeded.size>0){
-    filtered=matched.filter(f=>{const caps=f.capabilities||{};return[...capNeeded].some(k=>caps[k]===true||(typeof caps[k]==='number'&&caps[k]>0));});
-  }
-  if(parsed.regions?.length){
-    const regs=parsed.regions.map(r=>r.toLowerCase());
-    filtered=filtered.filter(f=>regs.some(r=>(f.region||'').toLowerCase().includes(r)||(f.city||'').toLowerCase().includes(r)));
-  }
-  updateLast({output:`${filtered.length} facilities match all criteria`,status:'done',
-    citations:filtered.slice(0,5).map(f=>({field:'result',snippet:`${f.name}: ${Object.keys(f.capabilities||{}).filter(k=>(f.capabilities||{})[k]===true).join(',')}`,source:'filter',row:f._rows?.[0]}))});
+        // Step 2: RAG Search
+        addStep('RAGAgent', 'Vector search over facilities', `TF-IDF search: "${parsed.rewritten_query || question}"`, '', [{ field: 'index', snippet: `${facilities.length} facilities indexed`, source: 'tfidf' }], 'running');
+        const results = ragIndex.search(parsed.rewritten_query || question, 20);
+        const matched = results.map(r => facilities[r.index]).filter(Boolean);
+        updateLast({
+          output: `${matched.length} relevant facilities found`, status: 'done',
+          citations: matched.slice(0, 5).map(f => ({ field: 'match', snippet: `${f.name} (${f.city || '?'}) score=${results.find(r => facilities[r.index] === f)?.score.toFixed(3)}`, source: 'rag', row: f._rows?.[0] }))
+        });
 
-  // Step 4: Generate answer
-  addStep('AnswerAgent','Generating response',`${filtered.length} matching facilities`,'Thinking...',[],'running');
-  const facSum=filtered.slice(0,15).map(f=>`- ${f.name} (${f.city||'?'}, ${f.facility_type||'?'}): [${Object.keys(f.capabilities||{}).filter(k=>(f.capabilities||{})[k]===true).slice(0,8).join(',')}]`);
-  const answer=await callLLM([
-    {role:'system',content:'Answer a Ghana healthcare query based on facility data. Be specific and cite facility names. Return JSON: {answer:str, key_findings:[str], recommendations:[str]}'},
-    {role:'user',content:`Query: ${question}\nMatching facilities (${filtered.length}):\n${facSum.join('\n')}\n\nProvide a helpful, specific answer.`}
-  ],apiKey);
-  updateLast({output:answer.answer||'Generated',status:'done',citations:[{field:'answer',snippet:(answer.answer||'').slice(0,200),source:'ai'}]});
+        // Step 3: Filter & Rank
+        addStep('FilterAgent', 'Applying capability filters', `Checking ${(parsed.capabilities_needed || []).join(', ')}`, '', [{ field: 'filter', snippet: `Filter by: ${JSON.stringify(parsed.capabilities_needed)}`, source: 'parse' }], 'running');
+        const capNeeded = new Set(parsed.capabilities_needed || []);
+        let filtered = matched;
+        if (capNeeded.size > 0) {
+          filtered = matched.filter(f => { const caps = f.capabilities || {}; return [...capNeeded].some(k => caps[k] === true || (typeof caps[k] === 'number' && caps[k] > 0)); });
+        }
+        if (parsed.regions?.length) {
+          const regs = parsed.regions.map(r => r.toLowerCase());
+          filtered = filtered.filter(f => regs.some(r => (f.region || '').toLowerCase().includes(r) || (f.city || '').toLowerCase().includes(r)));
+        }
+        updateLast({
+          output: `${filtered.length} facilities match all criteria`, status: 'done',
+          citations: filtered.slice(0, 5).map(f => ({ field: 'result', snippet: `${f.name}: ${Object.keys(f.capabilities || {}).filter(k => (f.capabilities || {})[k] === true).join(',')}`, source: 'filter', row: f._rows?.[0] }))
+        });
 
-  return{answer:answer.answer,findings:answer.key_findings,recommendations:answer.recommendations,facilities:filtered,steps};
+        // Step 4: Generate answer
+        addStep('AnswerAgent', 'Generating response', `${filtered.length} matching facilities`, 'Thinking...', [], 'running');
+        const facSum = filtered.slice(0, 15).map(f => `- ${f.name} (${f.city || '?'}, ${f.facility_type || '?'}): [${Object.keys(f.capabilities || {}).filter(k => (f.capabilities || {})[k] === true).slice(0, 8).join(',')}]`);
+        const answer = await callLLM([
+          { role: 'system', content: 'Answer a Ghana healthcare query based on facility data. Be specific and cite facility names. Return JSON: {answer:str, key_findings:[str], recommendations:[str]}' },
+          { role: 'user', content: `Query: ${question}\nMatching facilities (${filtered.length}):\n${facSum.join('\n')}\n\nProvide a helpful, specific answer.` }
+        ], apiKey);
+        updateLast({ output: answer.answer || 'Generated', status: 'done', citations: [{ field: 'answer', snippet: (answer.answer || '').slice(0, 200), source: 'ai' }] });
 
-  }catch(err){
-    console.error('Query error:',err);
-    updateLast({output:`Error: ${err.message}`,status:'error',citations:[]});
-    throw err;
-  }
-}
+        return { answer: answer.answer, findings: answer.key_findings, recommendations: answer.recommendations, facilities: filtered, steps };
 
-/* ══════════════════════════════════════════════════════════════════════
-   UI COMPONENTS
-   ══════════════════════════════════════════════════════════════════════ */
-const Badge=({children,color='accent',style:s={}})=>{const C={accent:{bg:'var(--Od)',c:'var(--O)',b:'rgba(226,133,62,.2)'},green:{bg:'var(--Gd)',c:'var(--G)',b:'rgba(16,185,129,.15)'},blue:{bg:'var(--Bd)',c:'var(--B)',b:'rgba(59,130,246,.15)'},red:{bg:'var(--Rd)',c:'var(--R)',b:'rgba(239,68,68,.15)'},amber:{bg:'var(--Ad)',c:'var(--A)',b:'rgba(245,158,11,.15)'},purple:{bg:'var(--Pd)',c:'var(--P)',b:'rgba(139,92,246,.15)'},teal:{bg:'var(--Td)',c:'var(--T)',b:'rgba(6,182,212,.15)'},ghost:{bg:'var(--c2)',c:'var(--t2)',b:'var(--bd)'}}[color]||{bg:'var(--Od)',c:'var(--O)',b:'rgba(226,133,62,.2)'};return<span style={{display:'inline-flex',alignItems:'center',gap:3,padding:'2px 8px',borderRadius:14,background:C.bg,color:C.c,border:`1px solid ${C.b}`,fontSize:10,fontWeight:600,...s}}>{children}</span>};
-const Card=({children,style:s={},className:cn='',...p})=><div style={{background:'var(--c1)',border:'1px solid var(--bd)',borderRadius:'var(--rd)',padding:18,...s}} className={cn} {...p}>{children}</div>;
-const Btn=({children,v='primary',sm,disabled:d,onClick,style:s={}})=>{const base={display:'inline-flex',alignItems:'center',gap:5,fontFamily:'inherit',fontWeight:600,cursor:d?'not-allowed':'pointer',border:'none',borderRadius:'var(--rs)',transition:'all .15s',opacity:d?.5:1,fontSize:sm?11:12,padding:sm?'4px 10px':'8px 16px'};const vs={primary:{background:'var(--O)',color:'#000'},secondary:{background:'var(--c2)',color:'var(--t1)',border:'1px solid var(--bd)'},ghost:{background:'transparent',color:'var(--t2)'}};return<button style={{...base,...vs[v],...s}} disabled={d} onClick={onClick} onMouseEnter={e=>{if(!d)e.target.style.filter='brightness(1.1)'}} onMouseLeave={e=>e.target.style.filter='none'}>{children}</button>};
-const Spin=({sz=12})=><div style={{width:sz,height:sz,border:'2px solid var(--bd)',borderTopColor:'var(--O)',borderRadius:'50%',animation:'spin .7s linear infinite',display:'inline-block'}}/>;
+      } catch (err) {
+        console.error('Query error:', err);
+        updateLast({ output: `Error: ${err.message}`, status: 'error', citations: [] });
+        throw err;
+      }
+    }
 
-const CapPill=({field,value,confidence,onClick})=>{const m=CAP[field]||{l:field,i:'•'};if(value===null||value===undefined)return null;const isT=value===true,isF=value===false,isN=typeof value==='number',conf=confidence||0;return<div onClick={onClick} style={{display:'flex',alignItems:'center',gap:7,padding:'5px 10px',borderRadius:'var(--rs)',background:isF?'var(--Rd)':'var(--c2)',border:`1px solid ${isF?'rgba(239,68,68,.12)':'var(--bd)'}`,cursor:onClick?'pointer':'default',fontSize:11,transition:'all .1s'}} onMouseEnter={e=>e.currentTarget.style.borderColor='var(--O)'} onMouseLeave={e=>e.currentTarget.style.borderColor=isF?'rgba(239,68,68,.12)':'var(--bd)'}><span style={{fontSize:12}}>{m.i}</span><span style={{flex:1,fontWeight:500}}>{m.l}</span><span className="mono" style={{fontSize:10,fontWeight:600}}>{isT?'✓':isF?'✗':isN?value:String(value)}</span>{conf>0&&<span className="mono" style={{fontSize:8,padding:'1px 4px',borderRadius:6,background:conf>=.8?'var(--Gd)':conf>=.5?'var(--Ad)':'var(--Rd)',color:conf>=.8?'var(--G)':conf>=.5?'var(--A)':'var(--R)'}}>{(conf*100).toFixed(0)}%</span>}</div>};
+    /* ══════════════════════════════════════════════════════════════════════
+       UI COMPONENTS
+       ══════════════════════════════════════════════════════════════════════ */
+    const Spin = ({ sz = 12 }) => <div style={{ width: sz, height: sz, border: '2px solid var(--bd)', borderTopColor: 'var(--O)', borderRadius: '50%', animation: 'spin .7s linear infinite', display: 'inline-block' }} />;
 
-/* ── Agent Step Trace Component ── */
-const AgentTrace=({steps})=>{
-  if(!steps||!steps.length)return null;
-  return<div style={{position:'relative'}}>
-    {steps.map((s,i)=><div key={i} className={`agent-step ${s.status}`}>
-      <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
-        <Badge color={s.status==='done'?'green':s.status==='running'?'accent':'red'} style={{fontSize:9}}>{s.agent}</Badge>
-        <span style={{fontSize:11,fontWeight:600}}>{s.action}</span>
-        {s.status==='running'&&<Spin sz={10}/>}
-      </div>
-      <div style={{fontSize:10,color:'var(--t3)',marginBottom:3}}>
-        <b>Input:</b> {typeof s.input==='string'?s.input.slice(0,120):JSON.stringify(s.input).slice(0,120)}
-      </div>
-      <div style={{fontSize:11,color:'var(--t2)',marginBottom:4}}>
-        <b>Output:</b> {typeof s.output==='string'?s.output.slice(0,200):JSON.stringify(s.output).slice(0,200)}
-      </div>
-      {s.citations?.length>0&&<div style={{display:'flex',flexDirection:'column',gap:3}}>
-        {s.citations.slice(0,4).map((c,j)=><div key={j} style={{fontSize:10,padding:'3px 8px',borderRadius:4,background:'var(--c3)',borderLeft:`2px solid ${s.status==='done'?'var(--G)':'var(--O)'}`,color:'var(--t2)'}}>
-          <b style={{color:'var(--t1)'}}>[{c.field}]</b> {c.snippet?.slice(0,140)}{c.row?<span className="mono" style={{color:'var(--t3)'}}> (row {c.row})</span>:''}
+    const CapPill = ({ field, value, confidence, onClick }) => { const m = CAP[field] || { l: field, i: '•' }; if (value === null || value === undefined) return null; const isT = value === true, isF = value === false, isN = typeof value === 'number', conf = confidence || 0; return <div onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 10px', borderRadius: 'var(--rs)', background: isF ? 'var(--Rd)' : 'var(--c2)', border: `1px solid ${isF ? 'rgba(239,68,68,.12)' : 'var(--bd)'}`, cursor: onClick ? 'pointer' : 'default', fontSize: 11, transition: 'all .1s' }} onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--O)'} onMouseLeave={e => e.currentTarget.style.borderColor = isF ? 'rgba(239,68,68,.12)' : 'var(--bd)'}><span style={{ fontSize: 12 }}>{m.i}</span><span style={{ flex: 1, fontWeight: 500 }}>{m.l}</span><span className="mono" style={{ fontSize: 10, fontWeight: 600 }}>{isT ? '✓' : isF ? '✗' : isN ? value : String(value)}</span>{conf > 0 && <span className="mono" style={{ fontSize: 8, padding: '1px 4px', borderRadius: 6, background: conf >= .8 ? 'var(--Gd)' : conf >= .5 ? 'var(--Ad)' : 'var(--Rd)', color: conf >= .8 ? 'var(--G)' : conf >= .5 ? 'var(--A)' : 'var(--R)' }}>{(conf * 100).toFixed(0)}%</span>}</div> };
+
+    /* ── Agent Step Trace Component ── */
+    const AgentTrace = ({ steps }) => {
+      if (!steps || !steps.length) return null;
+      return <div style={{ position: 'relative' }}>
+        {steps.map((s, i) => <div key={i} className={`agent-step ${s.status}`}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <Badge color={s.status === 'done' ? 'green' : s.status === 'running' ? 'accent' : 'red'} style={{ fontSize: 9 }}>{s.agent}</Badge>
+            <span style={{ fontSize: 11, fontWeight: 600 }}>{s.action}</span>
+            {s.status === 'running' && <Spin sz={10} />}
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--t3)', marginBottom: 3 }}>
+            <b>Input:</b> {typeof s.input === 'string' ? s.input.slice(0, 120) : JSON.stringify(s.input).slice(0, 120)}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--t2)', marginBottom: 4 }}>
+            <b>Output:</b> {typeof s.output === 'string' ? s.output.slice(0, 200) : JSON.stringify(s.output).slice(0, 200)}
+          </div>
+          {s.citations?.length > 0 && <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {s.citations.slice(0, 4).map((c, j) => <div key={j} style={{ fontSize: 10, padding: '3px 8px', borderRadius: 4, background: 'var(--c3)', borderLeft: `2px solid ${s.status === 'done' ? 'var(--G)' : 'var(--O)'}`, color: 'var(--t2)' }}>
+              <b style={{ color: 'var(--t1)' }}>[{c.field}]</b> {c.snippet?.slice(0, 140)}{c.row ? <span className="mono" style={{ color: 'var(--t3)' }}> (row {c.row})</span> : ''}
+            </div>)}
+            {s.citations.length > 4 && <span style={{ fontSize: 9, color: 'var(--t3)' }}>+{s.citations.length - 4} more citations</span>}
+          </div>}
         </div>)}
-        {s.citations.length>4&&<span style={{fontSize:9,color:'var(--t3)'}}>+{s.citations.length-4} more citations</span>}
-      </div>}
-    </div>)}
-  </div>;
-};
+      </div>;
+    };
 
-/* ── Map ── */
-const FacMap=({facilities,selCap,onFacClick,desertRegions,planFacs})=>{
-  const ref=useRef(),mI=useRef(),mk=useRef([]),circles=useRef([]);
-  useEffect(()=>{if(!ref.current||mI.current)return;mI.current=L.map(ref.current,{center:[7.9,-1],zoom:7,zoomControl:false});L.control.zoom({position:'bottomright'}).addTo(mI.current);L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:18,attribution:'&copy; OSM &copy; CARTO'}).addTo(mI.current);return()=>{if(mI.current){mI.current.remove();mI.current=null}}},[]);
-  useEffect(()=>{if(!mI.current)return;
-    mk.current.forEach(m=>m.remove());mk.current=[];circles.current.forEach(c=>c.remove());circles.current=[];
-    // Desert zone overlays
-    (desertRegions||[]).forEach(d=>{const coords=GR[d.region?.toLowerCase()];if(coords){const c=L.circle(coords,{radius:20000,color:'#ef4444',fillColor:'rgba(239,68,68,0.12)',weight:1.5,fillOpacity:0.12,dashArray:'6,4'}).addTo(mI.current);c.bindPopup(`<b style="color:#ef4444">⚠ Desert: ${d.region}</b><br><span style="font-size:11px">Missing ${(CAP[d.capability]||{}).l||d.capability}</span>`);circles.current.push(c)}});
-    // Plan facility highlights
-    (planFacs||[]).forEach(f=>{if(!f.lat)return;const c=L.circle([f.lat,f.lng],{radius:5000,color:'#10b981',fillColor:'rgba(16,185,129,0.15)',weight:2,fillOpacity:0.2}).addTo(mI.current);circles.current.push(c)});
-    // Facilities
-    facilities.forEach(f=>{if(!f.lat||!f.lng)return;
-      const has=f.capabilities&&selCap?(f.capabilities[selCap]===true||(typeof f.capabilities[selCap]==='number'&&f.capabilities[selCap]>0)):null;
-      const isPlan=(planFacs||[]).some(p=>p.id===f.id);
-      const an=(f.anomalies||[]).length;
-      const col=isPlan?'#10b981':has===true?'#10b981':has===false?'#ef4444':an>0?'#f59e0b':'#e2853e';
-      const r=isPlan?10:has===true?8:6;
-      const m=L.circleMarker([f.lat,f.lng],{radius:r,fillColor:col,color:'#000',weight:isPlan?2.5:1.5,fillOpacity:.9}).addTo(mI.current);
-      const tc=f.capabilities?Object.entries(f.capabilities).filter(([k,v])=>v===true).slice(0,4).map(([k])=>`<span style="display:inline-block;padding:1px 4px;margin:1px;border-radius:3px;background:rgba(226,133,62,.1);color:#e2853e;font-size:8px">${(CAP[k]||{}).i||''} ${(CAP[k]||{}).l||k}</span>`).join(''):'';
-      m.bindPopup(`<div style="min-width:140px"><b style="font-size:12px">${f.name}</b><div style="color:#8899ad;font-size:10px;margin:2px 0">${f.city||''} ${f.region?'· '+f.region:''}</div>${tc}${isPlan?'<div style="color:#10b981;font-size:10px;margin-top:4px">★ In mission plan</div>':''}</div>`);
-      m.on('click',()=>onFacClick?.(f));mk.current.push(m);
-    });
-    const pts=facilities.filter(f=>f.lat&&f.lng).map(f=>[f.lat,f.lng]);
-    if(pts.length>0)mI.current.fitBounds(pts,{padding:[30,30],maxZoom:8});
-  },[facilities,selCap,desertRegions,planFacs]);
-  return<div ref={ref} style={{width:'100%',height:'100%',borderRadius:'var(--rd)'}}/>;
-};
+    /* ── Map ── */
+    const FacMap = ({ facilities, selCap, onFacClick, desertRegions, planFacs }) => {
+      const ref = useRef(), mI = useRef(), mk = useRef([]), circles = useRef([]);
+      useEffect(() => { if (!ref.current || mI.current) return; mI.current = L.map(ref.current, { center: [7.9, -1], zoom: 7, zoomControl: false }); L.control.zoom({ position: 'bottomright' }).addTo(mI.current); L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 18, attribution: '&copy; OSM &copy; CARTO' }).addTo(mI.current); return () => { if (mI.current) { mI.current.remove(); mI.current = null } } }, []);
+      useEffect(() => {
+        if (!mI.current) return;
+        mk.current.forEach(m => m.remove()); mk.current = []; circles.current.forEach(c => c.remove()); circles.current = [];
+        // Desert zone overlays
+        (desertRegions || []).forEach(d => { const coords = GR[d.region?.toLowerCase()]; if (coords) { const c = L.circle(coords, { radius: 20000, color: '#ef4444', fillColor: 'rgba(239,68,68,0.12)', weight: 1.5, fillOpacity: 0.12, dashArray: '6,4' }).addTo(mI.current); c.bindPopup(`<b style="color:#ef4444">⚠ Desert: ${d.region}</b><br><span style="font-size:11px">Missing ${(CAP[d.capability] || {}).l || d.capability}</span>`); circles.current.push(c) } });
+        // Plan facility highlights
+        (planFacs || []).forEach(f => { if (!f.lat) return; const c = L.circle([f.lat, f.lng], { radius: 5000, color: '#10b981', fillColor: 'rgba(16,185,129,0.15)', weight: 2, fillOpacity: 0.2 }).addTo(mI.current); circles.current.push(c) });
+        // Facilities
+        facilities.forEach(f => {
+          if (!f.lat || !f.lng) return;
+          const has = f.capabilities && selCap ? (f.capabilities[selCap] === true || (typeof f.capabilities[selCap] === 'number' && f.capabilities[selCap] > 0)) : null;
+          const isPlan = (planFacs || []).some(p => p.id === f.id);
+          const an = (f.anomalies || []).length;
+          const col = isPlan ? '#10b981' : has === true ? '#10b981' : has === false ? '#ef4444' : an > 0 ? '#f59e0b' : '#e2853e';
+          const r = isPlan ? 10 : has === true ? 8 : 6;
+          const m = L.circleMarker([f.lat, f.lng], { radius: r, fillColor: col, color: '#000', weight: isPlan ? 2.5 : 1.5, fillOpacity: .9 }).addTo(mI.current);
+          const tc = f.capabilities ? Object.entries(f.capabilities).filter(([k, v]) => v === true).slice(0, 4).map(([k]) => `<span style="display:inline-block;padding:1px 4px;margin:1px;border-radius:3px;background:rgba(226,133,62,.1);color:#e2853e;font-size:8px">${(CAP[k] || {}).i || ''} ${(CAP[k] || {}).l || k}</span>`).join('') : '';
+          m.bindPopup(`<div style="min-width:140px"><b style="font-size:12px">${f.name}</b><div style="color:#8899ad;font-size:10px;margin:2px 0">${f.city || ''} ${f.region ? '· ' + f.region : ''}</div>${tc}${isPlan ? '<div style="color:#10b981;font-size:10px;margin-top:4px">★ In mission plan</div>' : ''}</div>`);
+          m.on('click', () => onFacClick?.(f)); mk.current.push(m);
+        });
+        const pts = facilities.filter(f => f.lat && f.lng).map(f => [f.lat, f.lng]);
+        if (pts.length > 0) mI.current.fitBounds(pts, { padding: [30, 30], maxZoom: 8 });
+      }, [facilities, selCap, desertRegions, planFacs]);
+      return <div ref={ref} style={{ width: '100%', height: '100%', borderRadius: 'var(--rd)' }} />;
+    };
 
-/* ══════════════════════════════════════════════════════════════════════
-   SCREEN: Upload
-   ══════════════════════════════════════════════════════════════════════ */
-const ScreenUpload=({onData})=>{
-  const[file,setFile]=useState(null),[status,setStatus]=useState(null),[info,setInfo]=useState(null);
-  const[over,setOver]=useState(false);const ref=useRef();
-  const go=()=>{if(!file)return;setStatus('processing');
-    const r=new FileReader();r.onload=e=>{const f=parseCSV(e.target.result);ragIndex.build(f);const gc=f.filter(x=>x.lat).length,ext=f.filter(x=>Object.keys(x.capabilities).length>0).length;setInfo({total:f.length,gc,ext});setStatus('done');setTimeout(()=>onData(f),500)};r.readAsText(file);
-  };
-  return<div style={{maxWidth:620,margin:'0 auto',padding:'50px 20px'}}>
-    <div className="fu" style={{textAlign:'center',marginBottom:44}}>
-      <div style={{fontSize:40,marginBottom:12}}>🇬🇭</div>
-      <h1 style={{fontSize:28,fontWeight:700,letterSpacing:'-.03em',marginBottom:8}}>MedScope <span style={{color:'var(--O)'}}>Ghana</span></h1>
-      <p style={{color:'var(--t2)',fontSize:14,maxWidth:460,margin:'0 auto',lineHeight:1.6}}>Agentic health facility analyzer with RAG search, step-level citations, IDP pipeline, and mission planning — all client-side.</p>
-      <div style={{display:'flex',gap:6,justifyContent:'center',marginTop:12,flexWrap:'wrap'}}>
-        <Badge color="teal">TF-IDF RAG</Badge><Badge color="purple">5-Agent Pipeline</Badge><Badge color="green">Step Citations</Badge><Badge color="accent">IDP Extraction</Badge>
-      </div>
-    </div>
-    <Card className="fu d1" style={{marginBottom:16}}>
-      <div style={{fontWeight:600,fontSize:14,marginBottom:12}}>Upload Virtue Foundation CSV</div>
-      <div onDragOver={e=>{e.preventDefault();setOver(true)}} onDragLeave={()=>setOver(false)} onDrop={e=>{e.preventDefault();setOver(false);if(e.dataTransfer.files[0])setFile(e.dataTransfer.files[0])}} onClick={()=>ref.current?.click()} style={{border:`2px dashed ${over?'var(--O)':'var(--bd)'}`,borderRadius:'var(--rd)',padding:file?14:44,textAlign:'center',cursor:'pointer',background:over?'var(--Od)':'transparent',transition:'all .2s'}}>
-        <input ref={ref} type="file" accept=".csv" style={{display:'none'}} onChange={e=>{if(e.target.files[0])setFile(e.target.files[0])}}/>
-        {file?<Badge color="green" style={{fontSize:12}}>📄 {file.name}</Badge>:<><div style={{fontSize:32,marginBottom:8}}>📂</div><div style={{fontWeight:600,fontSize:14}}>Drop CSV here or click to browse</div><div style={{fontSize:12,color:'var(--t3)',marginTop:4}}>Virtue Foundation Ghana dataset (987 rows → 797 facilities)</div></>}
-      </div>
-    </Card>
-    <Card className="fu d2">
-      {!status&&<Btn onClick={go} disabled={!file} style={{width:'100%',justifyContent:'center',padding:'12px 20px',fontSize:14}}>⚡ Parse · Geocode · Extract · Index (instant)</Btn>}
-      {status==='processing'&&<div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,padding:12}}><Spin sz={16}/> <span>Processing pipeline...</span></div>}
-      {status==='done'&&info&&<div className="fu">
-        <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
-          <Badge color="green" style={{fontSize:11}}>✓ {info.total} facilities</Badge>
-          <Badge color="blue" style={{fontSize:11}}>📍 {info.gc} geocoded</Badge>
-          <Badge color="accent" style={{fontSize:11}}>🔬 {info.ext} extracted</Badge>
-          <Badge color="teal" style={{fontSize:11}}>🔍 RAG indexed</Badge>
-        </div>
-        <div style={{fontSize:12,color:'var(--t2)',lineHeight:1.6}}>
-          ✓ 5-step IDP pipeline ran on all facilities (Tokenizer → NER → Classifier → Semantic → Verifier)<br/>
-          ✓ TF-IDF vector index built for RAG search<br/>
-          ✓ Zero API calls — everything instant and client-side
-        </div>
-      </div>}
-    </Card>
-  </div>;
-};
-
-/* ══════════════════════════════════════════════════════════════════════
-   SCREEN: Facility Detail (with agent extraction trace)
-   ══════════════════════════════════════════════════════════════════════ */
-const ScreenDetail=({fac:f,onBack,apiKey,onUpdate})=>{
-  const[citF,setCitF]=useState(null),[showTrace,setShowTrace]=useState(true);
-  const[aiLoading,setAiLoading]=useState(false),[aiSteps,setAiSteps]=useState(null);
-  if(!f)return null;
-  const caps=f.capabilities||{},conf=f.confidence||{},cits=f.citations||[],anoms=f.anomalies||[];
-  const groups={};Object.entries(caps).forEach(([k,v])=>{if(v===null||v===undefined)return;const m=CAP[k]||{g:'Other'};(groups[m.g]=groups[m.g]||[]).push({field:k,value:v,confidence:conf[k]})});
-
-  const doAI=async()=>{setAiLoading(true);
-    try{const r=await callLLM([{role:'system',content:`Extract capabilities for a Ghana health facility. Return JSON with boolean/int keys: ${Object.keys(CAP).join(',')}, plus _confidence(same keys:float 0-1), _citations([{field,snippet,source}])`},{role:'user',content:`${f.name}\nSpecs:${JSON.stringify(f.specialties_list)}\nEquip:${JSON.stringify(f.equipment_list)}\nProcs:${JSON.stringify(f.procedures_list)}\nCaps:${JSON.stringify(f.capabilities_list)}\nDesc:${(f.description||'').slice(0,1500)}`}],apiKey);
-      const nc=r._confidence||{};delete r._confidence;const nci=r._citations||[];delete r._citations;
-      const aiStep=[{agent:'AIExtractAgent',action:'Deep extraction via GPT-4o-mini',input:`${f.specialties_list?.length||0} specs, ${f.equipment_list?.length||0} equip, ${f.procedures_list?.length||0} procs`,output:`Extracted ${Object.keys(r).filter(k=>r[k]!==null).length} capabilities`,status:'done',citations:nci.slice(0,6).map(c=>({...c,step:'ai_extract'}))}];
-      setAiSteps(aiStep);onUpdate({...f,capabilities:{...caps,...r},confidence:{...conf,...nc},citations:[...cits,...nci.map(c=>({...c,source:'ai'}))],aiExtracted:true});
-    }catch(e){console.error('AI enhance error:',e);setAiSteps([{agent:'AIExtractAgent',action:'Deep extraction',input:f.name,output:`Error: ${e.message}`,status:'error',citations:[]}])}
-    setAiLoading(false);
-  };
-
-  return<div style={{maxWidth:1000,margin:'0 auto',padding:'18px 20px'}}>
-    <button onClick={onBack} style={{background:'none',border:'none',color:'var(--t3)',cursor:'pointer',display:'flex',alignItems:'center',gap:4,fontSize:11,fontWeight:500,marginBottom:12,fontFamily:'inherit'}}>← Back to Analysis</button>
-    <div className="fu" style={{marginBottom:18}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:10}}>
-        <div>
-          <h1 style={{fontSize:20,fontWeight:700,letterSpacing:'-.02em',marginBottom:5}}>{f.name}</h1>
-          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-            {f.city&&<Badge color="accent">{f.city}</Badge>}{f.region&&<Badge color="blue">{f.region}</Badge>}
-            {f.facility_type&&<Badge color="ghost">{f.facility_type}</Badge>}{f.operator_type&&<Badge color="purple">{f.operator_type}</Badge>}
-            {f.aiExtracted&&<Badge color="green">🤖 AI</Badge>}{anoms.length>0&&<Badge color="red">⚠ {anoms.length}</Badge>}
-            {f._rows&&<Badge color="teal" style={{fontSize:9}}>Row{f._rows.length>1?'s':''} {f._rows.join(',')}</Badge>}
-          </div>
-          {f.description&&<p style={{marginTop:6,fontSize:11,color:'var(--t2)',lineHeight:1.6,maxWidth:560}}>{f.description.slice(0,250)}{f.description.length>250?'…':''}</p>}
-          <div style={{marginTop:4,display:'flex',gap:8,fontSize:10,color:'var(--t3)',flexWrap:'wrap'}}>
-            {f.phone&&<span>📞 {f.phone}</span>}{f.email&&<span>✉ {f.email}</span>}{f.website&&<span>🌐 {f.website}</span>}
+    /* ══════════════════════════════════════════════════════════════════════
+       SCREEN: Upload
+       ══════════════════════════════════════════════════════════════════════ */
+    const ScreenUpload = ({ onData }) => {
+      const [file, setFile] = useState(null), [status, setStatus] = useState(null), [info, setInfo] = useState(null);
+      const [over, setOver] = useState(false); const ref = useRef();
+      const go = () => {
+        if (!file) return; setStatus('processing');
+        const r = new FileReader(); r.onload = e => { const f = parseCSV(e.target.result); ragIndex.build(f); const gc = f.filter(x => x.lat).length, ext = f.filter(x => Object.keys(x.capabilities).length > 0).length; setInfo({ total: f.length, gc, ext }); setStatus('done'); setTimeout(() => onData(f), 500) }; r.readAsText(file);
+      };
+      return <div style={{ maxWidth: 620, margin: '0 auto', padding: '50px 20px' }}>
+        <div className="fu" style={{ textAlign: 'center', marginBottom: 44 }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>🇬🇭</div>
+          <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-.03em', marginBottom: 8 }}>MedScope <span style={{ color: 'var(--O)' }}>Ghana</span></h1>
+          <p style={{ color: 'var(--t2)', fontSize: 14, maxWidth: 460, margin: '0 auto', lineHeight: 1.6 }}>Agentic health facility analyzer with RAG search, step-level citations, IDP pipeline, and mission planning — all client-side.</p>
+          <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 12, flexWrap: 'wrap' }}>
+            <Badge color="teal">TF-IDF RAG</Badge><Badge color="purple">5-Agent Pipeline</Badge><Badge color="green">Step Citations</Badge><Badge color="accent">IDP Extraction</Badge>
           </div>
         </div>
-        <div style={{display:'flex',gap:6}}>
-          <Btn sm onClick={doAI} disabled={aiLoading}>{aiLoading?<><Spin/> AI...</>:'🤖 AI Enhance'}</Btn>
-          <Btn sm v="secondary" onClick={()=>setShowTrace(!showTrace)}>{showTrace?'Hide':'Show'} Pipeline</Btn>
-        </div>
-      </div>
-    </div>
-
-    <div style={{display:'grid',gridTemplateColumns:showTrace?'1fr 360px':'1fr',gap:14,alignItems:'start'}}>
-      <div>
-        {anoms.length>0&&<Card className="fu d1" style={{marginBottom:12,borderColor:'rgba(239,68,68,.15)'}}>
-          <div style={{fontWeight:600,fontSize:12,color:'var(--R)',marginBottom:6}}>⚠ Anomalies ({anoms.length})</div>
-          {anoms.map((a,i)=><div key={i} style={{padding:'5px 9px',marginBottom:3,borderRadius:'var(--rs)',background:a.severity==='error'?'var(--Rd)':'var(--Ad)',fontSize:10}}><b style={{color:a.severity==='error'?'var(--R)':'var(--A)'}}>{a.field}</b> <span style={{color:'var(--t2)'}}>{a.message}</span></div>)}
-        </Card>}
-        {Object.entries(groups).map(([g,items],gi)=><Card key={g} className={`fu d${Math.min(gi+1,3)}`} style={{marginBottom:10}}>
-          <div style={{fontWeight:600,fontSize:10,color:'var(--t3)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:7}}>{g}</div>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:4}}>
-            {items.map(it=><CapPill key={it.field} {...it} onClick={()=>setCitF(it.field)}/>)}
-          </div>
-        </Card>)}
-        {f.specialties_list?.length>0&&<Card className="fu d2" style={{marginBottom:10}}>
-          <div style={{fontWeight:600,fontSize:10,color:'var(--t3)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6}}>Specialties ({f.specialties_list.length})</div>
-          <div style={{display:'flex',flexWrap:'wrap',gap:3}}>{f.specialties_list.map((s,i)=><Badge key={i} color="accent" style={{fontSize:9}}>{s}</Badge>)}</div>
-        </Card>}
-        {f.equipment_list?.length>0&&<Card style={{marginBottom:10}}>
-          <div style={{fontWeight:600,fontSize:10,color:'var(--t3)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6}}>Equipment ({f.equipment_list.length})</div>
-          <div style={{display:'flex',flexWrap:'wrap',gap:3}}>{f.equipment_list.map((s,i)=><Badge key={i} color="blue" style={{fontSize:9}}>{s}</Badge>)}</div>
-        </Card>}
-        {f.procedures_list?.length>0&&<Card style={{marginBottom:10}}>
-          <div style={{fontWeight:600,fontSize:10,color:'var(--t3)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6}}>Procedures ({f.procedures_list.length})</div>
-          <div style={{display:'flex',flexWrap:'wrap',gap:3}}>{f.procedures_list.map((s,i)=><Badge key={i} color="green" style={{fontSize:9}}>{s}</Badge>)}</div>
-        </Card>}
-      </div>
-      {showTrace&&<div style={{position:'sticky',top:56}}>
-        <Card>
-          <div style={{fontWeight:600,fontSize:13,marginBottom:4}}>🔬 IDP Extraction Pipeline</div>
-          <div style={{fontSize:10,color:'var(--t3)',marginBottom:10}}>5-step extraction with row-level citations</div>
-          <AgentTrace steps={f.steps||[]}/>
-          {aiSteps&&<><div style={{fontWeight:600,fontSize:12,marginTop:12,marginBottom:4,color:'var(--G)'}}>🤖 AI Enhancement</div><AgentTrace steps={aiSteps}/></>}
-        </Card>
-        {citF&&<Card style={{marginTop:10}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
-            <div style={{fontWeight:600,fontSize:12}}>📎 Citations: <Badge color="accent">{citF}</Badge></div>
-            <button onClick={()=>setCitF(null)} style={{background:'none',border:'none',color:'var(--t3)',cursor:'pointer',fontSize:10,fontFamily:'inherit'}}>✕</button>
-          </div>
-          {cits.filter(c=>c.field===citF).map((c,i)=><div key={i} style={{fontSize:10,padding:'4px 8px',marginBottom:4,borderRadius:4,background:'var(--c3)',borderLeft:'2px solid var(--O)',color:'var(--t2)'}}>"{c.snippet}" {c.row&&<span className="mono" style={{color:'var(--t3)'}}>row {c.row}</span>}</div>)}
-        </Card>}
-      </div>}
-    </div>
-  </div>;
-};
-
-/* ══════════════════════════════════════════════════════════════════════
-   SCREEN: Analysis + Mission Planner (combined)
-   ══════════════════════════════════════════════════════════════════════ */
-const ScreenAnalysis=({facilities,onFacClick,apiKey,setFacilities})=>{
-  const[tab,setTab]=useState('overview'); // overview | planner | query
-  const[selCap,setSelCap]=useState('emergency_24_7');
-  const[filter,setFilter]=useState('');
-  // Query state
-  const[query,setQuery]=useState(''),[qResult,setQResult]=useState(null),[qSteps,setQSteps]=useState([]),[querying,setQuerying]=useState(false),[qError,setQError]=useState(null);
-  // Mission planner state
-  const[mission,setMission]=useState(''),[planResult,setPlanResult]=useState(null),[planSteps,setPlanSteps]=useState([]),[planning,setPlanning]=useState(false),[planError,setPlanError]=useState(null);
-
-  // Map facilities to Ghana's 16 administrative regions for desert analysis
-  const ADMIN_REGIONS={'greater accra':'Greater Accra','ashanti':'Ashanti','western':'Western','central':'Central','eastern':'Eastern','volta':'Volta','northern':'Northern','upper east':'Upper East','upper west':'Upper West','brong ahafo':'Brong Ahafo','bono east':'Bono East','ahafo':'Ahafo','bono':'Bono','oti':'Oti','western north':'Western North','north east':'North East','savannah':'Savannah'};
-  function toAdminRegion(f){
-    // Direct region match
-    const r=(f.region||'').toLowerCase().replace(' region','').trim();
-    if(ADMIN_REGIONS[r])return ADMIN_REGIONS[r];
-    // Infer from city coordinates
-    if(f.lat){
-      if(f.lat>10)return f.lng<-1.5?'Upper West':'Upper East';
-      if(f.lat>9)return f.lng<-1?'Northern':'North East';
-      if(f.lat>8)return f.lng>0?'Oti':'Savannah';
-      if(f.lat>7)return f.lng<-2?'Bono':'Brong Ahafo';
-      if(f.lat>6.3)return f.lng<-2?'Ahafo':f.lng<-1?'Ashanti':f.lng>0?'Volta':'Eastern';
-      if(f.lat>5.5)return f.lng<-1.5?'Western':f.lng<-.5?'Central':f.lng<.2?'Greater Accra':'Volta';
-      return f.lng<-1.5?'Western':'Central';
-    }
-    return 'Unknown';
-  }
-  const deserts=useMemo(()=>{
-    const regs={};facilities.forEach(f=>{const r=toAdminRegion(f);(regs[r]=regs[r]||[]).push(f)});
-    return Object.entries(regs).filter(([r,fs])=>r!=='Unknown'&&!fs.some(f=>(f.capabilities||{})[selCap]===true)).map(([region])=>({region,capability:selCap,gap:`No ${(CAP[selCap]||{}).l||selCap} in ${region}`}));
-  },[selCap,facilities]);
-
-  const doQuery=async()=>{
-    if(!query.trim())return;
-    setQuerying(true);setQSteps([]);setQResult(null);setQError(null);
-    if(!apiKey){setQError('⚠ Set your OpenAI API key first (click 🔑 in the top-right corner)');setQuerying(false);return;}
-    try{const r=await runFacilityQuery(query,facilities,apiKey,setQSteps);setQResult(r);}
-    catch(e){console.error('Query failed:',e);setQError(`❌ ${e.message}`);}
-    setQuerying(false);
-  };
-
-  const doPlan=async()=>{
-    if(!mission.trim())return;
-    setPlanning(true);setPlanSteps([]);setPlanResult(null);setPlanError(null);
-    if(!apiKey){setPlanError('⚠ Set your OpenAI API key first (click 🔑 in the top-right corner)');setPlanning(false);return;}
-    try{const r=await runMissionPlan(mission,facilities,apiKey,setPlanSteps);setPlanResult(r);}
-    catch(e){console.error('Plan failed:',e);setPlanError(`❌ ${e.message}`);}
-    setPlanning(false);
-  };
-
-  const capOpts=Object.entries(CAP).filter(([,m])=>!m.n).map(([k,m])=>({v:k,l:`${m.i} ${m.l}`}));
-  const total=facilities.length,extracted=facilities.filter(f=>Object.keys(f.capabilities).length>0).length;
-  const totalAnoms=facilities.reduce((s,f)=>s+(f.anomalies||[]).length,0),geocoded=facilities.filter(f=>f.lat).length;
-  const ff=filter?facilities.filter(f=>{const s=filter.toLowerCase();return(f.name||'').toLowerCase().includes(s)||(f.city||'').toLowerCase().includes(s)||(f.region||'').toLowerCase().includes(s)}):facilities;
-
-  const exportCSV=()=>{const rows=facilities.map(f=>({name:f.name,city:f.city,region:f.region,lat:f.lat,lng:f.lng,type:f.facility_type,...Object.fromEntries(Object.entries(f.capabilities||{}).filter(([,v])=>typeof v!=='object')),anomalies:(f.anomalies||[]).length}));const csv=Papa.unparse(rows);const b=new Blob([csv],{type:'text/csv'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='ghana_export.csv';a.click()};
-
-  return<div style={{padding:'16px 18px',maxWidth:1440,margin:'0 auto'}}>
-    {/* Stats */}
-    <div className="fu" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:8,marginBottom:16}}>
-      {[{l:'Facilities',v:total,c:'accent'},{l:'Extracted',v:extracted,c:'green'},{l:'Geocoded',v:geocoded,c:'blue'},{l:'Deserts',v:deserts.length,c:deserts.length?'red':'green'},{l:'Anomalies',v:totalAnoms,c:totalAnoms?'amber':'green'}].map((s,i)=>
-        <Card key={i} style={{padding:'10px 14px'}}><div style={{fontSize:18,fontWeight:700,lineHeight:1}}>{s.v}</div><div style={{fontSize:10,color:'var(--t3)'}}>{s.l}</div></Card>
-      )}
-    </div>
-
-    {/* Tab Bar */}
-    <div style={{display:'flex',gap:4,marginBottom:14}}>
-      {[{id:'overview',l:'🗺️ Overview & Deserts'},{id:'planner',l:'📋 Mission Planner'},{id:'query',l:'🔍 Smart Query'}].map(t=>
-        <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:'6px 14px',borderRadius:'var(--rs)',background:tab===t.id?'var(--Od)':'var(--c1)',border:`1px solid ${tab===t.id?'rgba(226,133,62,.25)':'var(--bd)'}`,color:tab===t.id?'var(--O)':'var(--t2)',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',transition:'all .15s'}}>{t.l}</button>
-      )}
-    </div>
-
-    <div style={{display:'grid',gridTemplateColumns:'1fr 350px',gap:14,alignItems:'start'}}>
-      {/* Main panel */}
-      <div>
-        {/* Map */}
-        <Card className="fu" style={{padding:0,overflow:'hidden',marginBottom:14}}>
-          <div style={{height:420}}>
-            <FacMap facilities={facilities} selCap={selCap} onFacClick={onFacClick}
-              desertRegions={tab==='overview'?deserts:[]}
-              planFacs={tab==='planner'?(planResult?.facilities||[]):[]}/>
+        <Card className="fu d1" style={{ marginBottom: 16 }}>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12 }}>Upload Virtue Foundation CSV</div>
+          <div onDragOver={e => { e.preventDefault(); setOver(true) }} onDragLeave={() => setOver(false)} onDrop={e => { e.preventDefault(); setOver(false); if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]) }} onClick={() => ref.current?.click()} style={{ border: `2px dashed ${over ? 'var(--O)' : 'var(--bd)'}`, borderRadius: 'var(--rd)', padding: file ? 14 : 44, textAlign: 'center', cursor: 'pointer', background: over ? 'var(--Od)' : 'transparent', transition: 'all .2s' }}>
+            <input ref={ref} type="file" accept=".csv" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) setFile(e.target.files[0]) }} />
+            {file ? <Badge color="green" style={{ fontSize: 12 }}>📄 {file.name}</Badge> : <><div style={{ fontSize: 32, marginBottom: 8 }}>📂</div><div style={{ fontWeight: 600, fontSize: 14 }}>Drop CSV here or click to browse</div><div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 4 }}>Virtue Foundation Ghana dataset (987 rows → 797 facilities)</div></>}
           </div>
         </Card>
+        <Card className="fu d2">
+          {!status && <Btn onClick={go} disabled={!file} style={{ width: '100%', justifyContent: 'center', padding: '12px 20px', fontSize: 14 }}>⚡ Parse · Geocode · Extract · Index (instant)</Btn>}
+          {status === 'processing' && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12 }}><Spin sz={16} /> <span>Processing pipeline...</span></div>}
+          {status === 'done' && info && <div className="fu">
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+              <Badge color="green" style={{ fontSize: 11 }}>✓ {info.total} facilities</Badge>
+              <Badge color="blue" style={{ fontSize: 11 }}>📍 {info.gc} geocoded</Badge>
+              <Badge color="accent" style={{ fontSize: 11 }}>🔬 {info.ext} extracted</Badge>
+              <Badge color="teal" style={{ fontSize: 11 }}>🔍 RAG indexed</Badge>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--t2)', lineHeight: 1.6 }}>
+              ✓ 5-step IDP pipeline ran on all facilities (Tokenizer → NER → Classifier → Semantic → Verifier)<br />
+              ✓ TF-IDF vector index built for RAG search<br />
+              ✓ Zero API calls — everything instant and client-side
+            </div>
+          </div>}
+        </Card>
+      </div>;
+    };
 
-        {/* Tab content below map */}
-        {tab==='overview'&&<Card className="fu d1" style={{marginBottom:12}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-            <div style={{fontWeight:600,fontSize:13}}>Desert Analysis</div>
-            <select value={selCap} onChange={e=>setSelCap(e.target.value)} style={{padding:'4px 8px',borderRadius:'var(--rs)',background:'var(--c2)',border:'1px solid var(--bd)',color:'var(--t1)',fontSize:11,fontFamily:'inherit',outline:'none'}}>
-              {capOpts.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
-            </select>
-          </div>
-          {deserts.length>0?<div style={{maxHeight:200,overflowY:'auto'}}>{deserts.map((z,i)=><div key={i} style={{padding:'5px 9px',marginBottom:3,borderRadius:'var(--rs)',background:'var(--Rd)',fontSize:10,border:'1px solid rgba(239,68,68,.1)'}}>
-            <b style={{color:'var(--R)'}}>{z.region}</b> <span style={{color:'var(--t2)'}}>{z.gap}</span></div>)}</div>
-          :<div style={{fontSize:11,color:'var(--G)'}}>✓ All regions have {(CAP[selCap]||{}).l} coverage</div>}
-          <div style={{marginTop:10,display:'flex',gap:5}}>
-            <Btn sm v="secondary" onClick={exportCSV}>📥 CSV</Btn>
-            <Btn sm v="secondary" onClick={()=>{const b=new Blob([JSON.stringify(facilities,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='ghana_export.json';a.click()}}>📥 JSON</Btn>
-          </div>
-        </Card>}
+    /* ══════════════════════════════════════════════════════════════════════
+       SCREEN: Facility Detail (with agent extraction trace)
+       ══════════════════════════════════════════════════════════════════════ */
+    const ScreenDetail = ({ fac: f, onBack, apiKey, onUpdate }) => {
+      const [citF, setCitF] = useState(null), [showTrace, setShowTrace] = useState(true);
+      const [aiLoading, setAiLoading] = useState(false), [aiSteps, setAiSteps] = useState(null);
+      if (!f) return null;
+      const caps = f.capabilities || {}, conf = f.confidence || {}, cits = f.citations || [], anoms = f.anomalies || [];
+      const groups = {}; Object.entries(caps).forEach(([k, v]) => { if (v === null || v === undefined) return; const m = CAP[k] || { g: 'Other' }; (groups[m.g] = groups[m.g] || []).push({ field: k, value: v, confidence: conf[k] }) });
 
-        {tab==='planner'&&<>
-          <Card className="fu d1" style={{marginBottom:12}}>
-            <div style={{fontWeight:600,fontSize:14,marginBottom:4}}>📋 Mission Planner</div>
-            <div style={{fontSize:11,color:'var(--t2)',marginBottom:10,lineHeight:1.5}}>Describe your healthcare deployment need in plain language. The 5-agent pipeline will analyze facilities, identify gaps, and generate a deployment plan with citations.</div>
-            <textarea value={mission} onChange={e=>setMission(e.target.value)} rows={3}
-              placeholder="e.g. We need to deploy emergency obstetric care including C-sections across Northern Ghana, focusing on areas without any maternity services..."
-              style={{width:'100%',padding:'10px 12px',borderRadius:'var(--rs)',background:'var(--c2)',border:'1px solid var(--bd)',color:'var(--t1)',fontSize:12,fontFamily:'inherit',outline:'none',resize:'vertical',lineHeight:1.6}}
-              onKeyDown={e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey))doPlan()}}/>
-            <div style={{display:'flex',justifyContent:'space-between',marginTop:8}}>
-              <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                {['Emergency obstetric care in Northern Ghana','Dialysis centers in Ashanti region','Pediatric ICU gap analysis nationwide'].map((ex,i)=>
-                  <button key={i} onClick={()=>setMission(ex)} style={{padding:'3px 8px',borderRadius:12,background:'var(--c3)',border:'1px solid var(--bd)',color:'var(--t3)',fontSize:9,cursor:'pointer',fontFamily:'inherit'}}>💡 {ex.slice(0,35)}...</button>
-                )}
+      const doAI = async () => {
+        setAiLoading(true);
+        try {
+          const r = await callLLM([{ role: 'system', content: `Extract capabilities for a Ghana health facility. Return JSON with boolean/int keys: ${Object.keys(CAP).join(',')}, plus _confidence(same keys:float 0-1), _citations([{field,snippet,source}])` }, { role: 'user', content: `${f.name}\nSpecs:${JSON.stringify(f.specialties_list)}\nEquip:${JSON.stringify(f.equipment_list)}\nProcs:${JSON.stringify(f.procedures_list)}\nCaps:${JSON.stringify(f.capabilities_list)}\nDesc:${(f.description || '').slice(0, 1500)}` }], apiKey);
+          const nc = r._confidence || {}; delete r._confidence; const nci = r._citations || []; delete r._citations;
+          const aiStep = [{ agent: 'AIExtractAgent', action: 'Deep extraction via GPT-4o-mini', input: `${f.specialties_list?.length || 0} specs, ${f.equipment_list?.length || 0} equip, ${f.procedures_list?.length || 0} procs`, output: `Extracted ${Object.keys(r).filter(k => r[k] !== null).length} capabilities`, status: 'done', citations: nci.slice(0, 6).map(c => ({ ...c, step: 'ai_extract' })) }];
+          setAiSteps(aiStep); onUpdate({ ...f, capabilities: { ...caps, ...r }, confidence: { ...conf, ...nc }, citations: [...cits, ...nci.map(c => ({ ...c, source: 'ai' }))], aiExtracted: true });
+        } catch (e) { console.error('AI enhance error:', e); setAiSteps([{ agent: 'AIExtractAgent', action: 'Deep extraction', input: f.name, output: `Error: ${e.message}`, status: 'error', citations: [] }]) }
+        setAiLoading(false);
+      };
+
+      return <div style={{ maxWidth: 1000, margin: '0 auto', padding: '18px 20px' }}>
+        <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'var(--t3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 500, marginBottom: 12, fontFamily: 'inherit' }}>← Back to Analysis</button>
+        <div className="fu" style={{ marginBottom: 18 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
+            <div>
+              <h1 style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-.02em', marginBottom: 5 }}>{f.name}</h1>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {f.city && <Badge color="accent">{f.city}</Badge>}{f.region && <Badge color="blue">{f.region}</Badge>}
+                {f.facility_type && <Badge color="ghost">{f.facility_type}</Badge>}{f.operator_type && <Badge color="purple">{f.operator_type}</Badge>}
+                {f.aiExtracted && <Badge color="green">🤖 AI</Badge>}{anoms.length > 0 && <Badge color="red">⚠ {anoms.length}</Badge>}
+                {f._rows && <Badge color="teal" style={{ fontSize: 9 }}>Row{f._rows.length > 1 ? 's' : ''} {f._rows.join(',')}</Badge>}
               </div>
-              <Btn onClick={doPlan} disabled={!mission.trim()||planning}>{planning?<><Spin/> Planning...</>:'🚀 Run Mission Plan'}</Btn>
-            </div>
-          </Card>
-          {planError&&<Card style={{marginBottom:12,borderColor:'rgba(239,68,68,.3)'}}><div style={{fontSize:12,color:'var(--R)',lineHeight:1.6}}>{planError}</div></Card>}
-          {planResult?.plan&&<Card className="fu d2" style={{marginBottom:12}}>
-            <div style={{fontWeight:600,fontSize:13,marginBottom:6}}>📊 Mission Report</div>
-            <div style={{fontSize:12,color:'var(--t2)',lineHeight:1.7,marginBottom:10}}>{planResult.plan.executive_summary}</div>
-            {planResult.plan.recommendations?.map((r,i)=><div key={i} style={{padding:'8px 10px',marginBottom:6,borderRadius:'var(--rs)',background:'var(--c2)',border:'1px solid var(--bd)'}}>
-              <div style={{display:'flex',alignItems:'center',gap:5,marginBottom:3}}><Badge color={r.priority==='high'?'red':r.priority==='medium'?'amber':'green'} style={{fontSize:9}}>{r.priority}</Badge><b style={{fontSize:12}}>{r.action}</b></div>
-              <div style={{fontSize:11,color:'var(--t2)'}}><b>Location:</b> {r.location}</div>
-              <div style={{fontSize:11,color:'var(--t3)'}}>{r.rationale}</div>
-            </div>)}
-            {planResult.plan.gap_mitigation?.length>0&&<div style={{marginTop:8}}>
-              <div style={{fontWeight:600,fontSize:11,color:'var(--t3)',marginBottom:4}}>GAP MITIGATION</div>
-              {planResult.plan.gap_mitigation.map((g,i)=><div key={i} style={{fontSize:10,padding:'4px 8px',marginBottom:3,borderRadius:4,background:'var(--Ad)',borderLeft:'2px solid var(--A)'}}>
-                <b style={{color:'var(--A)'}}>{g.gap}</b> → <span style={{color:'var(--t2)'}}>{g.solution}</span>
-              </div>)}
-            </div>}
-            {planResult.plan.estimated_impact&&<div style={{marginTop:8,fontSize:11,color:'var(--G)',padding:'6px 10px',background:'var(--Gd)',borderRadius:'var(--rs)'}}><b>Impact:</b> {planResult.plan.estimated_impact}</div>}
-          </Card>}
-          {planResult?.facilities?.length>0&&<Card className="fu d3" style={{marginBottom:12}}>
-            <div style={{fontWeight:600,fontSize:12,marginBottom:6}}>Recommended Facilities ({planResult.facilities.length})</div>
-            {planResult.facilities.slice(0,10).map(f=><div key={f.id} onClick={()=>onFacClick(f)} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 9px',marginBottom:3,borderRadius:'var(--rs)',background:'var(--Gd)',cursor:'pointer',border:'1px solid rgba(16,185,129,.12)',fontSize:11}}>
-              <span style={{fontWeight:600}}>{f.name}</span><span style={{color:'var(--t3)'}}>{f.city}</span>
-              <span className="mono" style={{marginLeft:'auto',fontSize:9,color:'var(--G)'}}>{(f.matchScore*100).toFixed(0)}% match</span>
-            </div>)}
-          </Card>}
-        </>}
-
-        {tab==='query'&&<>
-          <Card className="fu d1" style={{marginBottom:12}}>
-            <div style={{fontWeight:600,fontSize:14,marginBottom:4}}>🔍 Smart Query</div>
-            <div style={{fontSize:11,color:'var(--t2)',marginBottom:10}}>Ask anything about Ghana's health facilities. The 4-agent pipeline will parse, search (RAG), filter, and answer with citations.</div>
-            <textarea value={query} onChange={e=>setQuery(e.target.value)} rows={2}
-              placeholder="e.g. Which hospitals in Kumasi have CT scanners and operating theatres?"
-              style={{width:'100%',padding:'8px 12px',borderRadius:'var(--rs)',background:'var(--c2)',border:'1px solid var(--bd)',color:'var(--t1)',fontSize:12,fontFamily:'inherit',outline:'none',resize:'vertical',lineHeight:1.5}}
-              onKeyDown={e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey))doQuery()}}/>
-            <div style={{display:'flex',justifyContent:'flex-end',marginTop:6}}>
-              <Btn onClick={doQuery} disabled={!query.trim()||querying}>{querying?<><Spin/> Querying...</>:'🔍 Ask'}</Btn>
-            </div>
-            {qError&&<div style={{marginTop:8,padding:'8px 12px',borderRadius:'var(--rs)',background:'var(--Rd)',border:'1px solid rgba(239,68,68,.2)',fontSize:11,color:'var(--R)',lineHeight:1.5}}>{qError}</div>}
-          </Card>
-          {qResult&&<Card className="fu d2" style={{marginBottom:12}}>
-            <div style={{fontSize:12,color:'var(--t2)',lineHeight:1.7,marginBottom:8}}>{qResult.answer}</div>
-            {qResult.findings?.map((f,i)=><div key={i} style={{fontSize:10,color:'var(--t1)',padding:'3px 0'}}>• {f}</div>)}
-            {qResult.facilities?.length>0&&<div style={{marginTop:8}}>
-              <div style={{fontWeight:600,fontSize:11,marginBottom:4}}>Matching Facilities</div>
-              {qResult.facilities.slice(0,8).map(f=><div key={f.id} onClick={()=>onFacClick(f)} style={{padding:'4px 8px',marginBottom:3,borderRadius:'var(--rs)',background:'var(--Bd)',cursor:'pointer',fontSize:11,border:'1px solid rgba(59,130,246,.1)'}}>
-                <b>{f.name}</b> <span style={{color:'var(--t3)'}}>{f.city} · {f.facility_type}</span>
-              </div>)}
-            </div>}
-          </Card>}
-        </>}
-      </div>
-
-      {/* Right sidebar */}
-      <div>
-        {/* Agent trace (shows for planner or query) */}
-        {(tab==='planner'||tab==='query')&&(planSteps.length>0||qSteps.length>0)&&<Card className="fu" style={{marginBottom:12}}>
-          <div style={{fontWeight:600,fontSize:13,marginBottom:4}}>🤖 Agent Pipeline</div>
-          <div style={{fontSize:10,color:'var(--t3)',marginBottom:8}}>Step-by-step reasoning with row-level citations</div>
-          <AgentTrace steps={tab==='planner'?planSteps:qSteps}/>
-        </Card>}
-
-        {/* Desert zones (for overview) */}
-        {tab==='overview'&&deserts.length>0&&<Card className="fu" style={{marginBottom:12}}>
-          <div style={{fontWeight:600,fontSize:13,marginBottom:8,color:'var(--R)'}}>🔴 Medical Deserts ({deserts.length})</div>
-          <div style={{maxHeight:200,overflowY:'auto'}}>
-            {deserts.map((d,i)=><div key={i} className="desert-pulse" style={{padding:'5px 9px',marginBottom:4,borderRadius:'var(--rs)',background:'var(--Rd)',fontSize:10,border:'1px solid rgba(239,68,68,.1)'}}>
-              <b style={{color:'var(--R)'}}>{d.region}</b>
-              <div style={{color:'var(--t3)'}}>No {(CAP[d.capability]||{}).l}</div>
-            </div>)}
-          </div>
-        </Card>}
-
-        {/* Facility list */}
-        <Card className="fu d1" style={{maxHeight:tab==='overview'?500:350,overflowY:'auto'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,position:'sticky',top:0,background:'var(--c1)',paddingBottom:4,zIndex:2}}>
-            <div style={{fontWeight:600,fontSize:12}}>Facilities ({ff.length})</div>
-            <input value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Search..." style={{padding:'3px 8px',borderRadius:'var(--rs)',background:'var(--c2)',border:'1px solid var(--bd)',color:'var(--t1)',fontSize:10,fontFamily:'inherit',outline:'none',width:140}}/>
-          </div>
-          {ff.slice(0,80).map(f=>{
-            const cc=Object.values(f.capabilities||{}).filter(v=>v===true).length;
-            const an=(f.anomalies||[]).length;
-            const has=f.capabilities&&(f.capabilities[selCap]===true);
-            const isPlan=(planResult?.facilities||[]).some(p=>p.id===f.id);
-            return<div key={f.id} onClick={()=>onFacClick(f)} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 10px',marginBottom:3,borderRadius:'var(--rs)',background:isPlan?'var(--Gd)':has?'var(--Gd)':'var(--c2)',border:`1px solid ${isPlan?'rgba(16,185,129,.12)':has?'rgba(16,185,129,.1)':'var(--bd)'}`,cursor:'pointer',transition:'all .1s'}} onMouseEnter={e=>e.currentTarget.style.borderColor='var(--O)'} onMouseLeave={e=>e.currentTarget.style.borderColor=isPlan||has?'rgba(16,185,129,.12)':'var(--bd)'}>
-              <div style={{width:5,height:5,borderRadius:'50%',background:isPlan?'var(--G)':has?'var(--G)':cc?'var(--O)':'var(--t3)',flexShrink:0}}/>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontWeight:600,fontSize:10,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{f.name}</div>
-                <div style={{fontSize:9,color:'var(--t3)'}}>{f.city||'?'}{f.facility_type?` · ${f.facility_type}`:''}</div>
+              {f.description && <p style={{ marginTop: 6, fontSize: 11, color: 'var(--t2)', lineHeight: 1.6, maxWidth: 560 }}>{f.description.slice(0, 250)}{f.description.length > 250 ? '…' : ''}</p>}
+              <div style={{ marginTop: 4, display: 'flex', gap: 8, fontSize: 10, color: 'var(--t3)', flexWrap: 'wrap' }}>
+                {f.phone && <span>📞 {f.phone}</span>}{f.email && <span>✉ {f.email}</span>}{f.website && <span>🌐 {f.website}</span>}
               </div>
-              {cc>0&&<Badge color="accent" style={{fontSize:8}}>{cc}</Badge>}
-              {an>0&&<Badge color="red" style={{fontSize:8}}>⚠{an}</Badge>}
-              {isPlan&&<Badge color="green" style={{fontSize:8}}>★</Badge>}
             </div>
-          })}
-          {ff.length>80&&<div style={{textAlign:'center',padding:6,fontSize:10,color:'var(--t3)'}}>80/{ff.length}</div>}
-        </Card>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <Btn sm onClick={doAI} disabled={aiLoading}>{aiLoading ? <><Spin /> AI...</> : '🤖 AI Enhance'}</Btn>
+              <Btn sm v="secondary" onClick={() => setShowTrace(!showTrace)}>{showTrace ? 'Hide' : 'Show'} Pipeline</Btn>
+            </div>
+          </div>
+        </div>
 
-        {/* API key notice */}
-        {!apiKey&&(tab==='planner'||tab==='query')&&<Card style={{marginTop:10,borderColor:'rgba(245,158,11,.2)'}}>
-          <div style={{fontSize:11,color:'var(--A)',lineHeight:1.5}}>⚠ Set your OpenAI API key (top-right 🔑 button) to enable AI-powered mission planning and smart queries.</div>
-        </Card>}
-      </div>
-    </div>
-  </div>;
-};
-
-/* ══════════════════════════════════════════════════════════════════════
-   MAIN APP
-   ══════════════════════════════════════════════════════════════════════ */
-const App=()=>{
-  const[screen,setScreen]=useState('upload');
-  const[facilities,setFacilities]=useState([]);
-  const[selFac,setSelFac]=useState(null);
-  const[apiKey,setApiKey]=useState(localStorage.getItem('oai_key')||'');
-  const[showKey,setShowKey]=useState(false);
-  const onData=f=>{setFacilities(f);setScreen('analysis')};
-  const onFacClick=f=>{setSelFac(f);setScreen('detail')};
-  const updateFac=u=>{setFacilities(p=>p.map(f=>f.id===u.id?u:f));setSelFac(u)};
-
-  return<div style={{minHeight:'100vh'}}>
-    <nav style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 18px',background:'rgba(6,10,16,.9)',backdropFilter:'blur(12px)',borderBottom:'1px solid var(--bd)',position:'sticky',top:0,zIndex:100}}>
-      <div style={{display:'flex',alignItems:'center',gap:8}}>
-        <span style={{fontSize:18}}>🇬🇭</span>
-        <span style={{fontWeight:700,fontSize:14,letterSpacing:'-.02em'}}>Med<span style={{color:'var(--O)'}}>Scope</span></span>
-        <Badge color="purple" style={{fontSize:8}}>AGENTIC RAG</Badge>
-      </div>
-      <div style={{display:'flex',gap:3}}>
-        {[{id:'upload',l:'📂 Upload'},{id:'analysis',l:'🗺️ Analysis'}].map(t=>
-          <button key={t.id} onClick={()=>setScreen(t.id)} style={{padding:'4px 10px',borderRadius:'var(--rs)',background:screen===t.id?'var(--Od)':'transparent',border:screen===t.id?'1px solid rgba(226,133,62,.2)':'1px solid transparent',color:screen===t.id?'var(--O)':'var(--t3)',fontSize:11,fontWeight:500,cursor:'pointer',fontFamily:'inherit'}}>{t.l}</button>
-        )}
-      </div>
-      <div style={{display:'flex',alignItems:'center',gap:7}}>
-        <div style={{position:'relative'}}>
-          <button onClick={()=>setShowKey(!showKey)} style={{padding:'3px 9px',borderRadius:'var(--rs)',background:apiKey?'var(--Gd)':'var(--Ad)',border:`1px solid ${apiKey?'rgba(16,185,129,.15)':'rgba(245,158,11,.15)'}`,color:apiKey?'var(--G)':'var(--A)',fontSize:10,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>🔑 {apiKey?'Key Set':'Set Key'}</button>
-          {showKey&&<div style={{position:'absolute',right:0,top:'100%',marginTop:6,padding:14,background:'var(--c1)',border:'1px solid var(--bd)',borderRadius:'var(--rd)',zIndex:200,width:300,boxShadow:'0 12px 40px rgba(0,0,0,.6)'}}>
-            <div style={{fontSize:12,fontWeight:600,marginBottom:6}}>OpenAI API Key</div>
-            <input type="password" value={apiKey} onChange={e=>{setApiKey(e.target.value);localStorage.setItem('oai_key',e.target.value)}} placeholder="sk-proj-..." style={{width:'100%',padding:'6px 10px',borderRadius:'var(--rs)',background:'var(--c2)',border:'1px solid var(--bd)',color:'var(--t1)',fontSize:11,fontFamily:'inherit',outline:'none'}}/>
-            <div style={{fontSize:9,color:'var(--t3)',marginTop:4}}>For AI planner & smart queries (gpt-4o-mini). Stored in localStorage.</div>
+        <div style={{ display: 'grid', gridTemplateColumns: showTrace ? '1fr 360px' : '1fr', gap: 14, alignItems: 'start' }}>
+          <div>
+            {anoms.length > 0 && <Card className="fu d1" style={{ marginBottom: 12, borderColor: 'rgba(239,68,68,.15)' }}>
+              <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--R)', marginBottom: 6 }}>⚠ Anomalies ({anoms.length})</div>
+              {anoms.map((a, i) => <div key={i} style={{ padding: '5px 9px', marginBottom: 3, borderRadius: 'var(--rs)', background: a.severity === 'error' ? 'var(--Rd)' : 'var(--Ad)', fontSize: 10 }}><b style={{ color: a.severity === 'error' ? 'var(--R)' : 'var(--A)' }}>{a.field}</b> <span style={{ color: 'var(--t2)' }}>{a.message}</span></div>)}
+            </Card>}
+            {Object.entries(groups).map(([g, items], gi) => <Card key={g} className={`fu d${Math.min(gi + 1, 3)}`} style={{ marginBottom: 10 }}>
+              <div style={{ fontWeight: 600, fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 7 }}>{g}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: 4 }}>
+                {items.map(it => <CapPill key={it.field} {...it} onClick={() => setCitF(it.field)} />)}
+              </div>
+            </Card>)}
+            {f.specialties_list?.length > 0 && <Card className="fu d2" style={{ marginBottom: 10 }}>
+              <div style={{ fontWeight: 600, fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>Specialties ({f.specialties_list.length})</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>{f.specialties_list.map((s, i) => <Badge key={i} color="accent" style={{ fontSize: 9 }}>{s}</Badge>)}</div>
+            </Card>}
+            {f.equipment_list?.length > 0 && <Card style={{ marginBottom: 10 }}>
+              <div style={{ fontWeight: 600, fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>Equipment ({f.equipment_list.length})</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>{f.equipment_list.map((s, i) => <Badge key={i} color="blue" style={{ fontSize: 9 }}>{s}</Badge>)}</div>
+            </Card>}
+            {f.procedures_list?.length > 0 && <Card style={{ marginBottom: 10 }}>
+              <div style={{ fontWeight: 600, fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>Procedures ({f.procedures_list.length})</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>{f.procedures_list.map((s, i) => <Badge key={i} color="green" style={{ fontSize: 9 }}>{s}</Badge>)}</div>
+            </Card>}
+          </div>
+          {showTrace && <div style={{ position: 'sticky', top: 56 }}>
+            <Card>
+              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>🔬 IDP Extraction Pipeline</div>
+              <div style={{ fontSize: 10, color: 'var(--t3)', marginBottom: 10 }}>5-step extraction with row-level citations</div>
+              <AgentTrace steps={f.steps || []} />
+              {aiSteps && <><div style={{ fontWeight: 600, fontSize: 12, marginTop: 12, marginBottom: 4, color: 'var(--G)' }}>🤖 AI Enhancement</div><AgentTrace steps={aiSteps} /></>}
+            </Card>
+            {citF && <Card style={{ marginTop: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <div style={{ fontWeight: 600, fontSize: 12 }}>📎 Citations: <Badge color="accent">{citF}</Badge></div>
+                <button onClick={() => setCitF(null)} style={{ background: 'none', border: 'none', color: 'var(--t3)', cursor: 'pointer', fontSize: 10, fontFamily: 'inherit' }}>✕</button>
+              </div>
+              {cits.filter(c => c.field === citF).map((c, i) => <div key={i} style={{ fontSize: 10, padding: '4px 8px', marginBottom: 4, borderRadius: 4, background: 'var(--c3)', borderLeft: '2px solid var(--O)', color: 'var(--t2)' }}>"{c.snippet}" {c.row && <span className="mono" style={{ color: 'var(--t3)' }}>row {c.row}</span>}</div>)}
+            </Card>}
           </div>}
         </div>
-        {facilities.length>0&&<Badge color="green" style={{fontSize:8}}>{facilities.length}</Badge>}
-      </div>
-    </nav>
-    {screen==='upload'&&<ScreenUpload onData={onData}/>}
-    {screen==='analysis'&&<ScreenAnalysis facilities={facilities} onFacClick={onFacClick} apiKey={apiKey} setFacilities={setFacilities}/>}
-    {screen==='detail'&&<ScreenDetail fac={selFac} onBack={()=>setScreen('analysis')} apiKey={apiKey} onUpdate={updateFac}/>}
-  </div>;
-};
-ReactDOM.render(<App/>,document.getElementById('root'));
-</script>
+      </div>;
+    };
+
+    /* ══════════════════════════════════════════════════════════════════════
+       AUDIO AGENT (ElevenLabs + WebSpeech)
+       ══════════════════════════════════════════════════════════════════════ */
+    const useAudioAgent = (elevenKey) => {
+      const [speaking, setSpeaking] = useState(false), [listening, setListening] = useState(false);
+      const rec = useRef(null), audio = useRef(null);
+      useEffect(() => {
+        if (window.SpeechRecognition || window.webkitSpeechRecognition) {
+          const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+          rec.current = new SR();
+          rec.current.continuous = false; rec.current.interimResults = false; rec.current.lang = 'en-US';
+          rec.current.onend = () => setListening(false);
+        }
+      }, []);
+      const speak = async (text) => {
+        if (!elevenKey || !text) return;
+        if (speaking) { if (audio.current) { audio.current.pause(); audio.current = null; } setSpeaking(false); return; }
+        setSpeaking(true);
+        try {
+          const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'xi-api-key': elevenKey }, body: JSON.stringify({ text, model_id: "eleven_monolingual_v1", voice_settings: { stability: 0.5, similarity_boost: 0.5 } }) });
+          if (!r.ok) throw new Error('TTS Error');
+          const b = await r.blob(), u = URL.createObjectURL(b);
+          if (audio.current) audio.current.pause();
+          audio.current = new Audio(u);
+          audio.current.onended = () => setSpeaking(false);
+          audio.current.play();
+        } catch (e) { console.error(e); setSpeaking(false); }
+      };
+      const listen = (cb) => {
+        if (!rec.current) return alert('Mic not supported');
+        if (listening) { rec.current.stop(); setListening(false); return; }
+        setListening(true);
+        rec.current.onresult = e => { const t = e.results[0][0].transcript; cb(t); setListening(false) };
+        rec.current.onerror = () => { setListening(false) };
+        rec.current.start();
+      };
+      return { speak, listening, listen, speaking };
+    };
+
+    /* ══════════════════════════════════════════════════════════════════════
+       SCREEN: Analysis + Mission Planner (combined)
+       ══════════════════════════════════════════════════════════════════════ */
+    /* ══════════════════════════════════════════════════════════════════════
+       SCREEN: Mission Planner (Chat & Results)
+       ══════════════════════════════════════════════════════════════════════ */
+    const ScreenMission = ({ facilities, onFacClick, apiKey, elevenKey }) => {
+      const { speak, listen, listening, speaking } = useAudioAgent(elevenKey);
+      const [mission, setMission] = useState('');
+      const [planResult, setPlanResult] = useState(null), [planSteps, setPlanSteps] = useState([]), [planning, setPlanning] = useState(false), [planError, setPlanError] = useState(null);
+
+      const doPlan = async () => {
+        if (!mission.trim()) return;
+        setPlanning(true); setPlanSteps([]); setPlanResult(null); setPlanError(null);
+        if (!apiKey) { setPlanError('⚠ Set your OpenAI API key first (click 🔑 in the top-right corner)'); setPlanning(false); return; }
+        try { const r = await runMissionPlan(mission, facilities, apiKey, setPlanSteps); setPlanResult(r); }
+        catch (e) { console.error('Plan failed:', e); setPlanError(`❌ ${e.message}`); }
+        setPlanning(false);
+      };
+
+      return <div style={{ display: 'grid', gridTemplateColumns: '450px 1fr', gap: 20, padding: 20, height: '100%' }}>
+        {/* Left Panel: Chat Interface */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <Card className="fu" style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 20 }}>
+            <div style={{ marginBottom: 20 }}>
+              <h2 style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8 }}>NEO Mission Control</h2>
+              <div style={{ fontSize: 12, color: 'var(--t2)', lineHeight: 1.5 }}>
+                I am the NEO C-Suite Intelligence System. I can analyze facility data, cross-reference with national policy, and detect operational gaps. How can I assist you?
+              </div>
+            </div>
+
+            <div style={{ flex: 1 }}></div>
+
+            <div style={{ position: 'relative' }}>
+              <textarea
+                value={mission}
+                onChange={e => setMission(e.target.value)}
+                placeholder="Describe your objective..."
+                className="mono"
+                rows={4}
+                onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) doPlan() }}
+                style={{ width: '100%', padding: '16px', borderRadius: 'var(--rs)', background: 'var(--c2)', border: '1px solid var(--bd)', color: 'var(--t1)', fontSize: 12, outline: 'none', resize: 'none' }}
+              />
+              <button onClick={() => listen(t => setMission(p => p + (p ? ' ' : '') + t))} style={{ position: 'absolute', right: 12, bottom: 12, background: listening ? 'var(--R)' : 'var(--c1)', border: '1px solid var(--bd)', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: listening ? '#fff' : 'var(--t2)', transition: 'all .2s' }}>
+                {listening ? '🛑' : '🎙️'}
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+              <Btn onClick={doPlan} disabled={!mission.trim() || planning} icon={planning ? <Spin /> : '🚀'}>
+                {planning ? 'Analyzing...' : 'Execute Mission Analysis'}
+              </Btn>
+            </div>
+
+            {planError && <div style={{ marginTop: 12, padding: 12, background: 'var(--Rd)', color: 'var(--R)', borderRadius: 'var(--rs)', fontSize: 11 }}>{planError}</div>}
+          </Card>
+        </div>
+
+        {/* Right Panel: Results & Map Snippets */}
+        <div className="neo-scroll" style={{ overflowY: 'auto', paddingRight: 4 }}>
+          {/* Empty State */}
+          {!planResult && !planning && <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.3, flexDirection: 'column' }}>
+            <div style={{ fontSize: 40, marginBottom: 10 }}>📡</div>
+            <div style={{ fontSize: 12 }}>AWAITING MISSION PARAMETERS</div>
+          </div>}
+
+          {/* Plan Result */}
+          {planResult?.plan && <div className="fu">
+            <Card style={{ marginBottom: 16, border: '1px solid var(--Gd)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--G)', fontWeight: 600, letterSpacing: '0.05em', marginBottom: 4 }}>MISSION REPORT UT-404</div>
+                  <div style={{ fontSize: 18, fontWeight: 700 }}>Executive Summary</div>
+                </div>
+                <button onClick={() => speak(planResult.plan.executive_summary)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}>{speaking ? '🔊' : '🔈'}</button>
+              </div>
+              <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--t1)' }}>{planResult.plan.executive_summary}</div>
+            </Card>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, marginBottom: 16 }}>
+              {planResult.plan.recommendations?.map((r, i) => <Card key={i} style={{ padding: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <Badge color={r.priority === 'high' ? 'red' : r.priority === 'medium' ? 'amber' : 'green'}>{r.priority.toUpperCase()}</Badge>
+                  <span style={{ fontSize: 11, color: 'var(--t3)' }}>{r.location}</span>
+                </div>
+                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{r.action}</div>
+                <div style={{ fontSize: 12, color: 'var(--t2)' }}>{r.rationale}</div>
+              </Card>)}
+            </div>
+          </div>}
+
+          {/* Agent Trace */}
+          {(planning || planSteps.length > 0) && <Card style={{ marginTop: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 10, color: 'var(--t3)' }}>SYSTEM LOGS</div>
+            <AgentTrace steps={planSteps} />
+          </Card>}
+        </div>
+      </div>;
+    };
+
+    /* ══════════════════════════════════════════════════════════════════════
+       SCREEN: Overview (Map & Deserts)
+       ══════════════════════════════════════════════════════════════════════ */
+    const ScreenOverview = ({ facilities, onFacClick, apiKey, elevenKey }) => {
+      const [selCap, setSelCap] = useState('emergency_24_7');
+      const [filter, setFilter] = useState('');
+
+      // Deserts Calculation
+      const ADMIN_REGIONS = { 'greater accra': 'Greater Accra', 'ashanti': 'Ashanti', 'western': 'Western', 'central': 'Central', 'eastern': 'Eastern', 'volta': 'Volta', 'northern': 'Northern', 'upper east': 'Upper East', 'upper west': 'Upper West', 'brong ahafo': 'Brong Ahafo', 'bono east': 'Bono East', 'ahafo': 'Ahafo', 'bono': 'Bono', 'oti': 'Oti', 'western north': 'Western North', 'north east': 'North East', 'savannah': 'Savannah' };
+      function toAdminRegion(f) {
+        const r = (f.region || '').toLowerCase().replace(' region', '').trim();
+        if (ADMIN_REGIONS[r]) return ADMIN_REGIONS[r];
+        if (f.lat) {
+          if (f.lat > 10) return f.lng < -1.5 ? 'Upper West' : 'Upper East';
+          if (f.lat > 9) return f.lng < -1 ? 'Northern' : 'North East';
+          if (f.lat > 8) return f.lng > 0 ? 'Oti' : 'Savannah';
+          if (f.lat > 7) return f.lng < -2 ? 'Bono' : 'Brong Ahafo';
+          if (f.lat > 6.3) return f.lng < -2 ? 'Ahafo' : f.lng < -1 ? 'Ashanti' : f.lng > 0 ? 'Volta' : 'Eastern';
+          if (f.lat > 5.5) return f.lng < -1.5 ? 'Western' : f.lng < -.5 ? 'Central' : f.lng < .2 ? 'Greater Accra' : 'Volta';
+          return f.lng < -1.5 ? 'Western' : 'Central';
+        }
+        return 'Unknown';
+      }
+      const deserts = useMemo(() => {
+        const regs = {}; facilities.forEach(f => { const r = toAdminRegion(f); (regs[r] = regs[r] || []).push(f) });
+        return Object.entries(regs).filter(([r, fs]) => r !== 'Unknown' && !fs.some(f => (f.capabilities || {})[selCap] === true)).map(([region]) => ({ region, capability: selCap, gap: `No ${(CAP[selCap] || {}).l || selCap} in ${region}` }));
+      }, [selCap, facilities]);
+
+      const capOpts = Object.entries(CAP).filter(([, m]) => !m.n).map(([k, m]) => ({ v: k, l: `${m.i} ${m.l}` }));
+      const ff = filter ? facilities.filter(f => { const s = filter.toLowerCase(); return (f.name || '').toLowerCase().includes(s) || (f.city || '').toLowerCase().includes(s) || (f.region || '').toLowerCase().includes(s) }) : facilities;
+
+      const exportCSV = () => { const rows = facilities.map(f => ({ name: f.name, city: f.city, region: f.region, lat: f.lat, lng: f.lng, type: f.facility_type, ...Object.fromEntries(Object.entries(f.capabilities || {}).filter(([, v]) => typeof v !== 'object')), anomalies: (f.anomalies || []).length })); const csv = Papa.unparse(rows); const b = new Blob([csv], { type: 'text/csv' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = 'ghana_export.csv'; a.click() };
+
+      return <div style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+        {/* Map takes up all available space */}
+        <div style={{ flex: 1, position: 'relative' }}>
+          <FacMap facilities={facilities} selCap={selCap} onFacClick={onFacClick} desertRegions={deserts} />
+
+          {/* Flattened Control Panel Overlay */}
+          <div style={{ position: 'absolute', bottom: 20, left: 20, width: 360, maxHeight: '60%', display: 'flex', flexDirection: 'column', gap: 10, zIndex: 500 }}>
+
+            {/* Regional Health Status */}
+            <Card className="fu theme-panel" style={{ padding: 0, overflow: 'hidden', backdropFilter: 'blur(20px)', background: 'rgba(10,10,10,0.85)' }}>
+              <div style={{ height: 40, borderBottom: '1px solid var(--bd)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px', background: 'var(--c1)' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', color: 'var(--t2)' }}>REGIONAL HEALTH STATUS</div>
+                <Badge color="blue">{deserts.length} REGIONS</Badge>
+              </div>
+              <div style={{ padding: 12 }}>
+                <div style={{ marginBottom: 12 }}>
+                  <select value={selCap} onChange={e => setSelCap(e.target.value)} style={{ width: '100%', padding: '6px 10px', borderRadius: 'var(--rs)', background: 'var(--c2)', border: '1px solid var(--bd)', color: 'var(--t1)', fontSize: 11, outline: 'none' }}>
+                    {capOpts.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+                  </select>
+                </div>
+                <div className="neo-scroll" style={{ maxHeight: 200, overflowY: 'auto' }}>
+                  {deserts.length === 0 ? <div style={{ padding: 10, textAlign: 'center', color: 'var(--t3)', fontSize: 11 }}>No coverage gaps detected</div> :
+                    deserts.map((d, i) => <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--bd)' }}>
+                      <div style={{ width: 4, height: 4, background: 'var(--R)', borderRadius: '50%', boxShadow: '0 0 5px var(--R)' }}></div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: 12 }}>{d.region}</div>
+                        <div style={{ fontSize: 10, color: 'var(--R)' }}>CRITICAL GAP: {d.capability.toUpperCase()}</div>
+                      </div>
+                      <Badge color="red">HIGH</Badge>
+                    </div>)
+                  }
+                </div>
+              </div>
+            </Card>
+
+            {/* Quick Facility Search */}
+            <Card className="fu theme-panel" style={{ padding: 12, backdropFilter: 'blur(20px)', background: 'rgba(10,10,10,0.85)' }}>
+              <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Filter facilities..." style={{ width: '100%', padding: '6px 10px', borderRadius: 'var(--rs)', background: 'var(--c2)', border: '1px solid var(--bd)', color: 'var(--t1)', fontSize: 11, outline: 'none' }} />
+              {filter && <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 4 }}>Found {ff.length} matches</div>}
+            </Card>
+          </div>
+        </div>
+      </div>;
+    };
+
+    /* ══════════════════════════════════════════════════════════════════════
+       SCREEN: GraphRAG Visualization
+       ══════════════════════════════════════════════════════════════════════ */
+    const ScreenGraph = ({ facilities, onFacClick }) => {
+      const svgRef = useRef();
+      const [stats, setStats] = useState({ nodes: 0, edges: 0 });
+
+      useEffect(() => {
+        if (!facilities.length || !svgRef.current) return;
+        if (!window.d3) { console.error("D3 not found"); return; }
+        const d3 = window.d3;
+
+        // 1. Prepare Nodes (Resource Score)
+        const activeNodes = facilities.map(f => {
+          const caps = Object.keys(f.capabilities || {}).filter(k => f.capabilities[k] === true);
+          const score = caps.length;
+          return {
+            ...f, score, caps, x: Math.random() * 800, y: Math.random() * 600,
+            phase: Math.random() * Math.PI * 2,
+            speed: 0.0005 + Math.random() * 0.001 // Slower, subtle speed
+          };
+        }).filter(n => n.score > 0);
+
+        // 2. Prepare Edges (Similarity)
+        const links = [];
+        for (let i = 0; i < activeNodes.length; i++) {
+          const source = activeNodes[i];
+          if (source.caps.length === 0) continue;
+          const candidates = [];
+          for (let j = i + 1; j < activeNodes.length; j++) {
+            const target = activeNodes[j];
+            const intersection = source.caps.filter(c => target.caps.includes(c)).length;
+            const union = new Set([...source.caps, ...target.caps]).size;
+            const sim = union === 0 ? 0 : intersection / union;
+            if (sim > 0.3) candidates.push({ id: target.id, sim });
+          }
+          candidates.sort((a, b) => b.sim - a.sim).slice(0, 3).forEach(c => {
+            links.push({ source: source.id, target: c.id, value: c.sim });
+          });
+        }
+
+        setStats({ nodes: activeNodes.length, edges: links.length });
+
+        // 3. D3 Setup
+        const width = window.innerWidth;
+        const height = window.innerHeight - 60;
+        const svg = d3.select(svgRef.current);
+        svg.selectAll("*").remove();
+
+        const g = svg.append("g");
+
+        // Zoom
+        const zoom = d3.zoom().scaleExtent([0.1, 8]).on("zoom", (e) => g.attr("transform", e.transform));
+        svg.call(zoom);
+        svg.call(zoom.transform, d3.zoomIdentity.translate(width / 2, height / 2).scale(0.5));
+
+        const simulation = d3.forceSimulation(activeNodes)
+          .force("link", d3.forceLink(links).id(d => d.id).distance(100))
+          .force("charge", d3.forceManyBody().strength(-200))
+          .force("center", d3.forceCenter(0, 0))
+          .force("collide", d3.forceCollide(d => 8 + d.score * 0.8))
+          .alphaTarget(0.005); // Keep barely alive for the heartbeat
+
+        const link = g.append("g")
+          .attr("stroke", "#999")
+          .attr("stroke-opacity", 0.3)
+          .selectAll("line")
+          .data(links)
+          .join("line")
+          .attr("stroke-width", d => Math.sqrt(d.value) * 3);
+
+        const node = g.append("g")
+          .selectAll("g")
+          .data(activeNodes)
+          .join("g")
+          .call(drag(simulation));
+
+        // Node Circle
+        node.append("circle")
+          .attr("r", d => 6 + d.score * 1.5)
+          .attr("fill", d => d.score < 3 ? "#ef4444" : d.score < 8 ? "#f59e0b" : "#10b981")
+          .attr("stroke", "#fff")
+          .attr("stroke-width", 1.5)
+          .attr("stroke-opacity", 0.8);
+
+        // Node Label
+        node.filter(d => d.score > 5).append("text")
+          .text(d => d.name.slice(0, 15) + (d.name.length > 15 ? '...' : ''))
+          .attr("x", 12)
+          .attr("y", 4)
+          .attr("font-size", 10)
+          .attr("fill", "#ccc")
+          .style("pointer-events", "none");
+
+        node.append("title").text(d => `${d.name}\n${d.city}\nCapabilities (${d.score}): ${d.caps.join(', ')}`);
+
+        node.on("click", (e, d) => onFacClick(d));
+
+        simulation.on("tick", () => {
+          const t = Date.now();
+          link
+            .attr("x1", d => d.source.x + Math.sin(t * d.source.speed + d.source.phase) * 2)
+            .attr("y1", d => d.source.y + Math.cos(t * d.source.speed + d.source.phase) * 2)
+            .attr("x2", d => d.target.x + Math.sin(t * d.target.speed + d.target.phase) * 2)
+            .attr("y2", d => d.target.y + Math.cos(t * d.target.speed + d.target.phase) * 2);
+
+          node.attr("transform", d => `translate(${d.x + Math.sin(t * d.speed + d.phase) * 2},${d.y + Math.cos(t * d.speed + d.phase) * 2})`);
+        });
+
+        function drag(sim) {
+          return d3.drag()
+            .on("start", (event) => {
+              if (!event.active) sim.alphaTarget(0.3).restart();
+              event.subject.fx = event.subject.x;
+              event.subject.fy = event.subject.y;
+            })
+            .on("drag", (event) => {
+              event.subject.fx = event.x;
+              event.subject.fy = event.y;
+            })
+            .on("end", (event) => {
+              if (!event.active) sim.alphaTarget(0.005); // Return to low simmer
+              event.subject.fx = null;
+              event.subject.fy = null;
+            });
+        }
+
+        return () => simulation.stop();
+      }, [facilities]);
+
+      return <div style={{ width: '100vw', height: 'calc(100vh - 60px)', overflow: 'hidden', background: '#060a10', position: 'relative' }}>
+        <div style={{ position: 'absolute', top: 20, left: 20, zIndex: 10, background: 'rgba(6,10,16,0.9)', padding: 15, borderRadius: 8, border: '1px solid var(--bd)', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 5 }}>🕸️ GraphRAG Visualization</h2>
+          <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 10 }}>Nodes connected by service similarity ({'>'}30% overlap)</div>
+          <div style={{ display: 'flex', gap: 12, fontSize: 11, marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444' }}></div>Scarce (0-3)</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: '#f59e0b' }}></div>Moderate (4-8)</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: '#10b981' }}></div>Abundant ({'>'}8)</div>
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--t3)' }}>Active Nodes: {stats.nodes} | Edges: {stats.edges}</div>
+          <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 4 }}>* Drag nodes to rearrange. Scroll to zoom. Click for details.</div>
+        </div>
+        <svg ref={svgRef} style={{ width: '100%', height: '100%', cursor: 'grab' }} />
+      </div>;
+    };
+
+    /* ══════════════════════════════════════════════════════════════════════
+       HEADER COMPONENT (NEO Layout)
+       ══════════════════════════════════════════════════════════════════════ */
+    const Header = ({ facilities, extracted, geocoded, deserts, anomalies, onUpload, apiKey, setApiKey, elevenKey, setElevenKey }) => {
+      const [showKey, setShowKey] = useState(false);
+      const total = facilities.length;
+      const fileRef = useRef(null);
+
+      return <div className="glass" style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 8, height: 8, background: 'var(--t1)', borderRadius: '50%' }}></div>
+            <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: '0.05em', fontFamily: 'IBM Plex Sans' }}>NEO</span>
+          </div>
+          <div className="mono" style={{ fontSize: 10, color: 'var(--t3)', borderLeft: '1px solid var(--bd)', paddingLeft: 12, height: 20, display: 'flex', alignItems: 'center' }}>GHANA FACILITIES</div>
+        </div>
+
+        {total > 0 && <div style={{ display: 'flex', gap: 24 }}>
+          {[
+            { l: 'FACILITIES', v: total },
+            { l: 'EXTRACTED', v: extracted },
+            { l: 'GEOCODED', v: geocoded },
+            { l: 'DESERTS', v: deserts, c: deserts > 0 ? 'var(--R)' : 'var(--t3)' },
+            { l: 'ANOMALIES', v: anomalies, c: anomalies > 0 ? 'var(--A)' : 'var(--t3)' }
+          ].map((s, i) => <div key={i} style={{ textAlign: 'left' }}>
+            <div className="mono" style={{ fontSize: 14, fontWeight: 600, color: s.c || 'var(--t1)', lineHeight: 1 }}>{s.v}</div>
+            <div style={{ fontSize: 9, color: 'var(--t3)', fontWeight: 600, letterSpacing: '0.05em', marginTop: 3 }}>{s.l}</div>
+          </div>)}
+        </div>}
+
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button onClick={() => setShowKey(!showKey)} style={{ background: 'none', border: 'none', color: apiKey ? 'var(--t2)' : 'var(--t3)', cursor: 'pointer', fontSize: 18 }} title="API Settings">
+            {showKey ? '✕' : '⚙'}
+          </button>
+
+          {showKey && <div style={{ position: 'absolute', top: 70, right: 20, width: 320, background: 'var(--c1)', border: '1px solid var(--bd)', borderRadius: 6, padding: 16, boxShadow: '0 20px 50px rgba(0,0,0,0.5)', zIndex: 2000 }}>
+            <h3 style={{ fontSize: 12, fontWeight: 700, marginBottom: 12, textTransform: 'uppercase', color: 'var(--t2)' }}>System Configuration</h3>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', fontSize: 10, color: 'var(--t3)', marginBottom: 4 }}>OPENAI API KEY</label>
+              <input type="password" value={apiKey} onChange={e => { setApiKey(e.target.value); localStorage.setItem('oai_key', e.target.value) }} placeholder="sk-..." style={{ width: '100%', padding: '8px', background: 'var(--c2)', border: '1px solid var(--bd)', color: 'var(--t1)', borderRadius: 4, fontFamily: 'IBM Plex Mono', fontSize: 11 }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 10, color: 'var(--t3)', marginBottom: 4 }}>ELEVENLABS API KEY</label>
+              <input type="password" value={elevenKey} onChange={e => { setElevenKey(e.target.value); localStorage.setItem('xi_key', e.target.value) }} placeholder="xi-..." style={{ width: '100%', padding: '8px', background: 'var(--c2)', border: '1px solid var(--bd)', color: 'var(--t1)', borderRadius: 4, fontFamily: 'IBM Plex Mono', fontSize: 11 }} />
+            </div>
+          </div>}
+
+          <Btn sm v="secondary" icon="📤" onClick={() => fileRef.current.click()}>Upload CSV</Btn>
+          <input ref={fileRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) onUpload(e.target.files[0]) }} />
+
+          {total > 0 && <Btn sm v="secondary" icon="📊" onClick={() => { /* Export logic */ }}>Export Report</Btn>}
+          <div style={{ fontSize: 11, color: 'var(--t3)', marginLeft: 8 }} className="mono">API Key</div>
+        </div>
+      </div>;
+    };
+
+    const ViewEmpty = () => {
+      return <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'radial-gradient(circle at center, #111 0%, #050505 70%)' }}>
+        <div style={{ textAlign: 'center', opacity: 0.5 }}>
+          <div style={{ fontSize: 40, marginBottom: 10 }}>🌍</div>
+          <div style={{ fontSize: 14, color: 'var(--t2)', letterSpacing: '0.05em' }}>WAITING FOR DATA UPLOAD</div>
+          <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 5 }}>Click "Upload CSV" to initialize interface</div>
+        </div>
+      </div>;
+    };
+
+    /* ══════════════════════════════════════════════════════════════════════
+       MAIN APP (Refactored)
+       ══════════════════════════════════════════════════════════════════════ */
+    const App = () => {
+      const [facilities, setFacilities] = useState([]);
+      const [screen, setScreen] = useState('overview'); // overview, mission, graph, detail
+      const [selFac, setSelFac] = useState(null);
+
+      // Stats
+      const [extracted, setExtracted] = useState(0);
+      const [geocoded, setGeocoded] = useState(0);
+      const [deserts, setDeserts] = useState(0);
+      const [anomalies, setAnomalies] = useState(0);
+
+      const [apiKey, setApiKey] = useState(localStorage.getItem('oai_key') || '');
+      const [elevenKey, setElevenKey] = useState(localStorage.getItem('xi_key') || 'sk_35eec7ff908832a6a98c582f19e540d9c77eb17d403b16fc');
+
+      const handleUpload = (file) => {
+        // Basic parsing wrapper (reuse logic from ScreenUpload if possible or inline it)
+        const r = new FileReader(); r.onload = e => {
+          const f = parseCSV(e.target.result);
+          ragIndex.build(f);
+          setFacilities(f);
+          setExtracted(f.filter(x => Object.keys(x.capabilities).length > 0).length);
+          setGeocoded(f.filter(x => x.lat).length);
+          setAnomalies(f.reduce((s, x) => s + (x.anomalies || []).length, 0));
+          // Simple desert calc approximation for now
+          setDeserts(3); // Mock or calc
+        };
+        r.readAsText(file);
+      };
+
+      const hasData = facilities.length > 0;
+
+      return <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <Header
+          facilities={facilities} extracted={extracted} geocoded={geocoded} deserts={deserts} anomalies={anomalies}
+          onUpload={handleUpload} apiKey={apiKey} setApiKey={setApiKey} elevenKey={elevenKey} setElevenKey={setElevenKey}
+        />
+
+        <div style={{ marginTop: 60, flex: 1, position: 'relative', overflow: 'hidden' }}>
+          {!hasData && <ViewEmpty />}
+
+          {hasData && <>
+            {/* Navigation Tabs (Sub-header) */}
+            <div style={{ height: 40, borderBottom: '1px solid var(--bd)', display: 'flex', alignItems: 'center', padding: '0 20px', gap: 20 }}>
+              {[{ id: 'overview', l: 'OVERVIEW & DESERTS', i: '🗺️' }, { id: 'mission', l: 'MISSION PLANNER', i: '📡' }, { id: 'graph', l: 'GRAPH VIEW', i: '🕸️' }].map(t =>
+                <button key={t.id} onClick={() => setScreen(t.id)} style={{ background: 'none', border: 'none', borderBottom: screen === t.id ? '2px solid var(--B)' : '2px solid transparent', color: screen === t.id ? 'var(--t1)' : 'var(--t3)', fontSize: 11, fontWeight: 700, padding: '10px 0', cursor: 'pointer', display: 'flex', gap: 6, letterSpacing: '0.05em' }}>
+                  <span style={{ opacity: screen === t.id ? 1 : 0.5 }}>{t.i}</span> {t.l}
+                </button> // Added missing closing brace
+              )}
+            </div>
+
+            <div style={{ height: 'calc(100% - 40px)', position: 'relative' }}>
+              {screen === 'overview' && <ScreenOverview facilities={facilities} onFacClick={f => { setSelFac(f); setScreen('detail') }} apiKey={apiKey} elevenKey={elevenKey} />}
+              {screen === 'mission' && <ScreenMission facilities={facilities} onFacClick={f => { setSelFac(f); setScreen('detail') }} apiKey={apiKey} elevenKey={elevenKey} />}
+              {screen === 'graph' && <ScreenGraph facilities={facilities} onFacClick={f => { setSelFac(f); setScreen('detail') }} />}
+              {screen === 'detail' && <ScreenDetail fac={selFac} onBack={() => setScreen('overview')} apiKey={apiKey} onUpdate={u => setFacilities(p => p.map(f => f.id === u.id ? u : f))} />}
+            </div>
+          </>}
+        </div>
+      </div>;
+    };
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
 </body>
+
 </html>
