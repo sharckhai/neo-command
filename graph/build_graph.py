@@ -33,6 +33,7 @@ from graph.normalize import (
 )
 from graph.inference import add_lacks_edges, add_could_support_edges
 from graph.desert import add_desert_edges
+from graph.geocode import batch_geocode, region_from_coords
 
 logger = logging.getLogger(__name__)
 
@@ -216,6 +217,18 @@ def build_graph(
     # --- Load & clean ---
     rows = load_csv(csv_path)
     rows = normalize_regions(rows, country_config)
+
+    # --- Geocode facilities ---
+    coords = batch_geocode(rows, country_config)
+    for row in rows:
+        pk = row.get("pk_unique_id")
+        if pk and pk in coords:
+            row["_lat"], row["_lng"] = coords[pk]
+            if not row.get("_normalized_region"):
+                row["_normalized_region"] = region_from_coords(
+                    row["_lat"], row["_lng"], country_config,
+                )
+
     entities = deduplicate_rows(rows)
 
     # --- Create Region nodes ---
@@ -325,7 +338,10 @@ def _add_facility(G: nx.MultiDiGraph, entity: dict, country_config: Any) -> None
         area=entity.get("area"),
         year_established=entity.get("yearEstablished"),
         city=entity.get("address_city"),
+        address_line1=entity.get("address_line1"),
         region=entity.get("_normalized_region"),
+        lat=entity.get("_lat"),
+        lng=entity.get("_lng"),
         source_count=entity.get("_source_count", 1),
         email=entity.get("email"),
         phone_numbers=entity.get("phone_numbers", []),

@@ -6,6 +6,7 @@ They will be wrapped as LangGraph tools for agent tool-calling.
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import networkx as nx
@@ -412,3 +413,117 @@ def get_graph_summary(G: nx.MultiDiGraph) -> dict[str, Any]:
         "node_counts": node_counts,
         "edge_counts": edge_counts,
     }
+
+
+# ---------------------------------------------------------------------------
+# Specialty discovery
+# ---------------------------------------------------------------------------
+
+def list_specialties(G: nx.MultiDiGraph) -> list[dict]:
+    """List all specialty nodes with their facility counts.
+
+    Returns list of dicts sorted by facility_count descending:
+        [{"key": "gynecologyAndObstetrics", "display_name": "...", "facility_count": 108}, ...]
+    """
+    specialty_counts: dict[str, dict] = {}
+
+    for nid, ndata in G.nodes(data=True):
+        if ndata.get("node_type") != NODE_SPECIALTY:
+            continue
+        key = nid.split("::", 1)[1] if "::" in nid else nid
+        specialty_counts[key] = {
+            "key": key,
+            "display_name": ndata.get("display_name", key),
+            "facility_count": 0,
+        }
+
+    # Count facilities per specialty
+    for source, target, edata in G.edges(data=True):
+        if edata.get("edge_type") != EDGE_HAS_SPECIALTY:
+            continue
+        sdata = G.nodes.get(source, {})
+        if sdata.get("node_type") != NODE_FACILITY:
+            continue
+        key = target.split("::", 1)[1] if "::" in target else target
+        if key in specialty_counts:
+            specialty_counts[key]["facility_count"] += 1
+
+    results = list(specialty_counts.values())
+    results.sort(key=lambda x: x["facility_count"], reverse=True)
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Geospatial queries
+# ---------------------------------------------------------------------------
+
+def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    """Great-circle distance in km between two lat/lng points."""
+    R = 6371.0
+    dlat = math.radians(lat2 - lat1)
+    dlng = math.radians(lng2 - lng1)
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(math.radians(lat1))
+        * math.cos(math.radians(lat2))
+        * math.sin(dlng / 2) ** 2
+    )
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def find_nearest_facilities(
+    G: nx.MultiDiGraph,
+    lat: float,
+    lng: float,
+    capability_key: str | None = None,
+    specialty_key: str | None = None,
+    limit: int = 10,
+) -> list[dict]:
+    """Find facilities nearest to a point, optionally filtered by capability or specialty.
+
+    Uses haversine distance. Returns list sorted by distance_km ascending.
+    """
+    cid = capability_id(capability_key) if capability_key else None
+    sid = specialty_id(specialty_key) if specialty_key else None
+
+    results = []
+
+    for nid, ndata in G.nodes(data=True):
+        if ndata.get("node_type") != NODE_FACILITY:
+            continue
+        flat = ndata.get("lat")
+        flng = ndata.get("lng")
+        if flat is None or flng is None:
+            continue
+
+        # Filter by capability
+        if cid:
+            has_cap = any(
+                edata.get("edge_type") == EDGE_HAS_CAPABILITY and target == cid
+                for _, target, edata in G.edges(nid, data=True)
+            )
+            if not has_cap:
+                continue
+
+        # Filter by specialty
+        if sid:
+            has_spec = any(
+                edata.get("edge_type") == EDGE_HAS_SPECIALTY and target == sid
+                for _, target, edata in G.edges(nid, data=True)
+            )
+            if not has_spec:
+                continue
+
+        dist = _haversine_km(lat, lng, flat, flng)
+        results.append({
+            "facility_id": nid,
+            "facility_name": ndata.get("name", "Unknown"),
+            "region": ndata.get("region"),
+            "city": ndata.get("city"),
+            "lat": flat,
+            "lng": flng,
+            "distance_km": round(dist, 2),
+        })
+
+    results.sort(key=lambda x: x["distance_km"])
+    return results[:limit]
