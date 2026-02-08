@@ -300,12 +300,6 @@ Built for the **Databricks x Hack Nation** track: *Bridging Medical Deserts - Bu
 
 ---
 
-## Team
-
-Built at Hack Nation 2026 (Feb 7-8) in collaboration with MIT Sloan AI Club & MIT Club of Northern California.
-
----
-
 ## License
 
 MIT
