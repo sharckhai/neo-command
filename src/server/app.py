@@ -16,6 +16,10 @@ from server.models import ChatRequest, FacilitySummary
 app = FastAPI()
 
 
+def _format_sse_event(payload: dict) -> str:
+    return f"data: {json.dumps(payload)}\n\n"
+
+
 @app.get("/api/health")
 async def health() -> dict:
     return {"status": "ok", "target": settings.pipeline_target}
@@ -49,11 +53,11 @@ async def facilities() -> list[FacilitySummary]:
 async def chat(request: ChatRequest) -> EventSourceResponse:
     response = build_chat_response(request.message)
 
-    async def event_generator() -> AsyncIterator[dict]:
+    async def event_generator() -> AsyncIterator[str]:
         for token in response.answer.split():
             payload = {"type": "token", "text": token + " "}
-            yield {"data": json.dumps(payload)}
+            yield _format_sse_event(payload)
         final_payload = {"type": "final", "payload": response.model_dump()}
-        yield {"data": json.dumps(final_payload)}
+        yield _format_sse_event(final_payload)
 
     return EventSourceResponse(event_generator())
