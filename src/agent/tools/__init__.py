@@ -34,12 +34,10 @@ def make_analyst_tools(G):
 
 
 def make_verifier_tools(G):
-    """Tools for the Verifier agent: anomalies, compliance, validation."""
+    """Tools for the Verifier agent: resolve vocabulary + query LACKS edges."""
     return [
         *make_resolve_tools(G),
-        *make_anomaly_tools(G),
-        *_pick(make_inspect_tools(G), {"inspect_facility", "get_requirements", "find_lacks"}),
-        *_pick(make_search_tools(G), {"search_raw_text"}),
+        *_pick(make_inspect_tools(G), {"find_lacks"}),
     ]
 
 
