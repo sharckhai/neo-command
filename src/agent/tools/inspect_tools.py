@@ -1,4 +1,4 @@
-"""Inspection tools: inspect_facility, get_requirements."""
+"""Inspection tools: inspect_facility, get_requirements, find_lacks."""
 
 from __future__ import annotations
 
@@ -140,4 +140,84 @@ def make_inspect_tools(G: nx.MultiDiGraph) -> list:
 
         return json.dumps(result, default=str)
 
-    return [inspect_facility, get_requirements]
+    @function_tool
+    def find_lacks(
+        capability: str,
+        facility_ids: list[str] | None = None,
+        region: str | None = None,
+    ) -> str:
+        """Find facilities that LACK required equipment for a claimed capability.
+
+        Queries the pre-computed LACKS edges in the graph. Each LACKS edge means
+        the facility claims a capability but has no evidence of a required piece
+        of equipment. Returns per-facility: missing equipment list, the
+        HAS_CAPABILITY confidence and raw_text that produced the claim, and
+        total equipment the facility does have.
+
+        Use this to quickly separate false NLP mappings (low confidence +
+        vague raw_text + lacks everything) from real gaps (high confidence +
+        specific raw_text + lacks some items).
+
+        Args:
+            capability: Canonical capability key (e.g. "general_surgery").
+            facility_ids: Optional list of facility IDs to check. If omitted,
+                searches all facilities with LACKS edges for this capability.
+            region: Optional region filter (e.g. "Northern").
+        """
+        # Collect LACKS edges for this capability
+        lacks_by_fac: dict[str, list[str]] = {}
+        for src, tgt, edata in G.edges(data=True):
+            if edata.get("edge_type") != "LACKS":
+                continue
+            if capability not in edata.get("required_by", []):
+                continue
+            if facility_ids and src not in facility_ids:
+                continue
+            if region:
+                fac_region = G.nodes[src].get("region") or ""
+                if fac_region.lower() != region.lower():
+                    continue
+            equip = tgt.split("::", 1)[1] if "::" in tgt else tgt
+            lacks_by_fac.setdefault(src, []).append(equip)
+
+        results = []
+        for fid, missing in lacks_by_fac.items():
+            ndata = G.nodes[fid]
+
+            # Get the HAS_CAPABILITY edge(s) for this capability
+            cap_node = f"capability::{capability}"
+            claim_edges = []
+            for _, t, ed in G.edges(fid, data=True):
+                if ed.get("edge_type") == "HAS_CAPABILITY" and t == cap_node:
+                    claim_edges.append({
+                        "confidence": ed.get("confidence"),
+                        "source_field": ed.get("source_field"),
+                        "raw_text": ed.get("raw_text", ""),
+                    })
+
+            # Count total equipment the facility has
+            equip_count = sum(
+                1 for _, _, ed in G.edges(fid, data=True)
+                if ed.get("edge_type") == "HAS_EQUIPMENT"
+            )
+
+            results.append({
+                "facility_id": fid,
+                "name": ndata.get("name", "Unknown"),
+                "region": ndata.get("region"),
+                "facility_type": ndata.get("facility_type"),
+                "missing_equipment": sorted(missing),
+                "missing_count": len(missing),
+                "total_equipment_count": equip_count,
+                "capability_claims": claim_edges,
+            })
+
+        results.sort(key=lambda r: r["missing_count"], reverse=True)
+
+        return json.dumps({
+            "capability": capability,
+            "facilities_lacking": len(results),
+            "results": results,
+        }, default=str)
+
+    return [inspect_facility, get_requirements, find_lacks]

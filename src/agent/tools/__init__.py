@@ -38,7 +38,7 @@ def make_verifier_tools(G):
     return [
         *make_resolve_tools(G),
         *make_anomaly_tools(G),
-        *_pick(make_inspect_tools(G), {"inspect_facility", "get_requirements"}),
+        *_pick(make_inspect_tools(G), {"inspect_facility", "get_requirements", "find_lacks"}),
         *_pick(make_search_tools(G), {"search_raw_text"}),
     ]
 
