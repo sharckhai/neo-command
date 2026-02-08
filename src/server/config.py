@@ -4,6 +4,9 @@ from dataclasses import dataclass
 from pathlib import Path
 import os
 
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 OUTPUT_DIR = ROOT_DIR / "output"

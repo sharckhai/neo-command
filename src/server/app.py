@@ -6,7 +6,7 @@ from typing import AsyncIterator
 
 import pandas as pd
 from fastapi import FastAPI
-from sse_starlette.sse import EventSourceResponse
+from starlette.responses import StreamingResponse
 
 from server.agents import init_agents, run_agent_stream
 from server.config import settings
@@ -19,10 +19,6 @@ app = FastAPI(title="VirtueCommand API")
 async def startup():
     """Initialize knowledge graph and agents."""
     init_agents()
-
-
-def _format_sse_event(payload: dict) -> str:
-    return f"data: {json.dumps(payload)}\n\n"
 
 
 @app.get("/api/health")
@@ -45,9 +41,13 @@ async def facilities() -> list[FacilitySummary]:
 
 
 @app.post("/api/chat")
-async def chat(request: ChatRequest) -> EventSourceResponse:
+async def chat(request: ChatRequest):
     async def event_generator() -> AsyncIterator[str]:
         async for event in run_agent_stream(request.message, request.session_id):
-            yield _format_sse_event(event)
+            yield f"data: {json.dumps(event)}\n\n"
 
-    return EventSourceResponse(event_generator())
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
