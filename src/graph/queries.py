@@ -7,6 +7,7 @@ They will be wrapped as LangGraph tools for agent tool-calling.
 from __future__ import annotations
 
 import math
+import re
 from typing import Any
 
 import networkx as nx
@@ -20,6 +21,24 @@ from graph.schema import (
     EDGE_OPERATES_IN,
     facility_id, region_id, specialty_id, capability_id, equipment_id,
 )
+
+
+def _normalize_region(region: str | None) -> str | None:
+    """Normalise a region string to the canonical key form stored on nodes.
+
+    Accepts display names ("Northern Region"), keys ("northern"),
+    and node IDs ("region::northern").  Returns the key form or *None*.
+    """
+    if not region:
+        return None
+    r = region.strip()
+    if r.startswith("region::"):
+        r = r[len("region::"):]
+    # Strip trailing " region" (case-insensitive)
+    r = re.sub(r"\s+region$", "", r, flags=re.IGNORECASE)
+    # Convert to snake_case key
+    r = r.lower().replace(" ", "_").replace("-", "_")
+    return r
 
 
 # ---------------------------------------------------------------------------
@@ -616,6 +635,7 @@ def fuzzy_find_facility(
 
     Uses case-insensitive substring match then token overlap scoring.
     """
+    region = _normalize_region(region)
     query_lower = name.lower().strip()
     query_tokens = set(query_lower.split())
     matches: list[dict] = []
@@ -825,6 +845,7 @@ def detect_procedure_size_anomalies(
     limit: int = 20,
 ) -> list[dict[str, Any]]:
     """Flag facilities claiming many procedures relative to their size/capacity."""
+    region = _normalize_region(region)
     results: list[dict] = []
 
     for nid, ndata in G.nodes(data=True):
@@ -895,6 +916,7 @@ def detect_equipment_claim_anomalies(
     limit: int = 20,
 ) -> list[dict[str, Any]]:
     """Flag facilities with many capabilities but few equipment items (high LACKS ratio)."""
+    region = _normalize_region(region)
     results: list[dict] = []
 
     for nid, ndata in G.nodes(data=True):
@@ -961,6 +983,7 @@ def detect_feature_correlations(
 
     E.g., has surgery capabilities but no operating_theatre, or has ICU but no ventilator.
     """
+    region = _normalize_region(region)
     EXPECTED_CORRELATIONS = [
         (["general_surgery", "cesarean_section", "orthopedic_surgery", "cardiac_surgery",
           "neurosurgery", "laparoscopic_surgery", "plastic_surgery", "urology_surgery"],
@@ -1021,6 +1044,7 @@ def detect_bed_or_anomalies(
     limit: int = 20,
 ) -> list[dict[str, Any]]:
     """Flag facilities with unusual bed-to-surgical-capability ratios."""
+    region = _normalize_region(region)
     results: list[dict] = []
     surgical_caps = {
         "general_surgery", "cesarean_section", "orthopedic_surgery",

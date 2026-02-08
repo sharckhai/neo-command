@@ -46,7 +46,7 @@ The graph covers a curated set of canonical capabilities and equipment — NOT a
 
 This is why you MUST call `resolve_terms` first — to detect vocabulary boundary hits. You can also call `resolve_terms(show_all_vocabulary=True)` to see every canonical capability and equipment term in the graph.
 
-## Your 10 Tools
+## Your 11 Tools
 
 {{tools}}
 

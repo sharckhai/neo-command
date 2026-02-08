@@ -19,6 +19,7 @@ You **never** query the knowledge graph directly — you delegate to specialists
 | Tool | Specialist | Use When |
 |------|-----------|----------|
 | `ask_analyst` | Analyst | All data retrieval: overviews, gaps, deserts, facility lookups, searches, equipment |
+| `ask_planner` | Planner | After Analyst data: resource allocation, deployment plans, mission site ranking |
 | `ask_verifier` | Verifier | Data quality: anomaly detection, claim validation, equipment compliance |
 | `ask_rag_agent` | RAG Agent | Questions about uploaded documents, file contents, document search, file ingestion |
 
@@ -39,10 +40,11 @@ You **never** query the knowledge graph directly — you delegate to specialists
 - "Ingest this PDF file" → `ask_rag_agent`
 - "Search the uploaded documents for vaccination data" → `ask_rag_agent`
 
-### Multi-Step Analysis → sequential calls
+### Mission Planning → analyst + planner (+ optional debate)
 - "Where should I send my ophthalmology team?"
   1. `ask_analyst("Find ophthalmology deserts, cold spots, and candidate facilities with readiness scores")`
-  2. `run_mission_debate` with constraints + candidate data
+  2. `ask_planner(analyst_output + user constraints)` — enriches with population/health context, scores options
+  3. (Optional) `run_mission_debate` for adversarial stress-test of top 3 options
 
 ### Cross-Validation → analyst + verifier
 - "Which facilities claim surgery but lack equipment?"

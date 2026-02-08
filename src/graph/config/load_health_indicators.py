@@ -220,8 +220,10 @@ _KEY_INDICATORS = {
     # Fertility
     "Total fertility rate 15-49": "total_fertility_rate",
     # Healthcare access
-    "Percentage of live births delivered by caesarean section": "cesarean_pct",
-    "Percentage of live births delivered in a health facility": "facility_delivery_pct",
+    "Delivery by cesarean section": "cesarean_pct",
+    "Place of delivery: Health facility": "facility_delivery_pct",
+    "Antenatal care from a skilled provider": "skilled_antenatal_pct",
+    "Assistance during delivery from a skilled provider": "skilled_delivery_pct",
 }
 
 

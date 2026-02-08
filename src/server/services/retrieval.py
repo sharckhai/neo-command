@@ -77,19 +77,23 @@ def _llm_grade_hits(query: str, hits: List[Dict[str, Any]]) -> List[Dict[str, An
     return filtered
 
 
-def self_rag_search(query: str, k: int = 5, trace: Optional[TraceRecorder] = None) -> List[Dict[str, Any]]:
+def self_rag_search(query: str, k: int = 5, trace: Optional[TraceRecorder] = None) -> str | List[Dict[str, Any]]:
     embedding = _embed_query(query)
     if embedding is None:
         if trace:
             trace.add_step("vector.embed", {"query": query}, {"status": "missing_api_key"})
-        return []
+        return "No standard rag data to query"
     if trace:
         trace.add_step("vector.embed", {"query": query}, {"status": "ok"})
     raw_hits = _search_vectors(embedding, k=k)
     if trace:
         trace.add_step("vector.search", {"k": k}, {"hits": len(raw_hits)})
+    if not raw_hits:
+        return "No standard rag data to query"
     filtered = filter_relevant_hits(raw_hits)
     refined = _llm_grade_hits(query, filtered)
     if trace:
         trace.add_step("vector.filter", {"input": len(raw_hits)}, {"output": len(refined)})
+    if not refined:
+        return "No standard rag data to query"
     return refined

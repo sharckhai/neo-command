@@ -4,11 +4,12 @@ from agent.tools.inspect_tools import make_inspect_tools
 from agent.tools.gap_tools import make_gap_tools
 from agent.tools.anomaly_tools import make_anomaly_tools
 from agent.tools.overview_tools import make_overview_tools
+from agent.tools.context_tools import make_context_tools
 from agent.tools.rag_tools import make_rag_tools
 
 
 def make_all_tools(G):
-    """Create all 11 agent tools bound to the given graph."""
+    """Create all agent tools bound to the given graph."""
     return [
         *make_resolve_tools(G),
         *make_search_tools(G),
@@ -16,17 +17,19 @@ def make_all_tools(G):
         *make_gap_tools(G),
         *make_anomaly_tools(G),
         *make_overview_tools(G),
+        *make_context_tools(G),
     ]
 
 
 def make_analyst_tools(G):
-    """Tools for the Analyst agent: landscape + facility details."""
+    """Tools for the Analyst agent: landscape + facility details + context."""
     return [
         *make_resolve_tools(G),
         *make_overview_tools(G),
         *make_search_tools(G),
         *make_gap_tools(G),
         *make_inspect_tools(G),
+        *make_context_tools(G),
     ]
 
 
@@ -37,6 +40,15 @@ def make_verifier_tools(G):
         *make_anomaly_tools(G),
         *_pick(make_inspect_tools(G), {"inspect_facility", "get_requirements"}),
         *_pick(make_search_tools(G), {"search_raw_text"}),
+    ]
+
+
+def make_planner_tools(G):
+    """Tools for the Planner agent: context enrichment + facility verification."""
+    return [
+        *make_context_tools(G),
+        *make_inspect_tools(G),
+        *_pick(make_search_tools(G), {"search_facilities"}),
     ]
 
 

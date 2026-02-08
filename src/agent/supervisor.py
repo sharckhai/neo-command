@@ -4,17 +4,37 @@ from __future__ import annotations
 from pathlib import Path
 
 from agents import Agent, Runner, function_tool
+from agents.stream_events import RunItemStreamEvent
 
 from agent.analyst import create_analyst
+from agent.planner import create_planner
 from agent.rag_agent import create_rag_agent
 from agent.verifier import create_verifier
 
 _PROMPTS = Path(__file__).resolve().parent.parent.parent / "prompts"
 
 
+def _print_sub_event(agent_name: str, event: RunItemStreamEvent) -> None:
+    item = event.item
+    item_type = item.type if hasattr(item, "type") else type(item).__name__
+    prefix = f"  [{agent_name}]"
+    if item_type == "tool_call_item":
+        call = item.raw_item
+        name = call.name if hasattr(call, "name") else "?"
+        args = call.arguments if hasattr(call, "arguments") else ""
+        args_display = args[:300] + "..." if len(str(args)) > 300 else args
+        print(f"\n{prefix} >> {name}")
+        print(f"{prefix}    args: {args_display}")
+    elif item_type == "tool_call_output_item":
+        output = item.output if hasattr(item, "output") else str(item)
+        output_display = str(output)[:500] + "..." if len(str(output)) > 500 else output
+        print(f"{prefix}    << {output_display}")
+
+
 def create_supervisor(G) -> Agent:
     """Create the Supervisor agent with agent-as-tool wrappers."""
     analyst = create_analyst(G)
+    planner = create_planner(G)
     verifier = create_verifier(G)
     rag_agent = create_rag_agent()
 
@@ -24,21 +44,46 @@ def create_supervisor(G) -> Agent:
     async def ask_analyst(query: str) -> str:
         """Ask the Analyst for all data retrieval: overviews, gaps, deserts,
         facility lookups, searches, equipment checks, geospatial queries."""
-        result = await Runner.run(analyst, query)
+        result = Runner.run_streamed(analyst, query)
+        async for event in result.stream_events():
+            if isinstance(event, RunItemStreamEvent):
+                _print_sub_event("Analyst", event)
         return result.final_output
 
     @function_tool
     async def ask_verifier(query: str) -> str:
         """Ask the Verifier to assess data quality: anomaly detection,
         claim validation, equipment compliance checks."""
-        result = await Runner.run(verifier, query)
+        result = Runner.run_streamed(verifier, query)
+        async for event in result.stream_events():
+            if isinstance(event, RunItemStreamEvent):
+                _print_sub_event("Verifier", event)
+        return result.final_output
+
+    @function_tool
+    async def ask_planner(analyst_findings_and_constraints: str) -> str:
+        """Ask the Planner to create a resource allocation or deployment plan.
+
+        Call this AFTER getting data from ask_analyst. Provide:
+        - The Analyst's findings (deserts, cold spots, candidate facilities)
+        - The user's constraints (team size, specialty, duration, budget)
+
+        The Planner will enrich with population/health context and produce
+        a scored deployment recommendation."""
+        result = Runner.run_streamed(planner, analyst_findings_and_constraints)
+        async for event in result.stream_events():
+            if isinstance(event, RunItemStreamEvent):
+                _print_sub_event("Planner", event)
         return result.final_output
 
     @function_tool
     async def ask_rag_agent(query: str) -> str:
         """Ask the RAG agent to search uploaded documents, ingest new files,
         or answer questions from document contents."""
-        result = await Runner.run(rag_agent, query)
+        result = Runner.run_streamed(rag_agent, query)
+        async for event in result.stream_events():
+            if isinstance(event, RunItemStreamEvent):
+                _print_sub_event("RAG", event)
         return result.final_output
 
     # --- Debate tools ---
@@ -87,6 +132,7 @@ def create_supervisor(G) -> Agent:
         instructions=(_PROMPTS / "supervisor.md").read_text(),
         tools=[
             ask_analyst,
+            ask_planner,
             ask_verifier,
             ask_rag_agent,
             run_facility_debate,
