@@ -11,6 +11,25 @@ EQUIPMENT_REQUIREMENTS: Dict[str, List[str]] = {
     "icu": ["ventilator", "patient monitor"],
 }
 
+ASPIRATIONAL_KEYWORDS = [
+    "plan to",
+    "planning to",
+    "aim to",
+    "hope to",
+    "future",
+    "coming soon",
+    "will offer",
+]
+
+REFERRAL_KEYWORDS = [
+    "refer",
+    "referral",
+    "referred",
+    "transfer",
+    "transferred",
+    "send patients",
+]
+
 
 def required_equipment_for(procedure: str) -> List[str]:
     text = procedure.lower()
@@ -33,3 +52,13 @@ def missing_equipment(
         if missing_items:
             missing[procedure] = missing_items
     return missing
+
+
+def contains_aspirational_language(text: str) -> bool:
+    lowered = text.lower()
+    return any(keyword in lowered for keyword in ASPIRATIONAL_KEYWORDS)
+
+
+def contains_referral_language(text: str) -> bool:
+    lowered = text.lower()
+    return any(keyword in lowered for keyword in REFERRAL_KEYWORDS)
