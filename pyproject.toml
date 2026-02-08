@@ -1,0 +1,17 @@
+[project]
+name = "virtue-command"
+version = "0.1.0"
+description = "Chat-driven healthcare intelligence for NGO mission planners"
+requires-python = ">=3.11"
+dependencies = [
+    "networkx>=3.2",
+    "openai>=1.0",
+    "pydantic>=2.0",
+    "python-dotenv>=1.2.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ipython>=8.0",
+]
