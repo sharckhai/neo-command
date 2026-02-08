@@ -1178,7 +1178,10 @@ def analyze_ngo_coverage(G: nx.MultiDiGraph) -> dict[str, Any]:
         ngo_data = G.nodes.get(source, {})
         rkey = _extract_key(target)
         region_ngos.setdefault(rkey, []).append(source)
-        ngo_names[source] = ngo_data.get("name", "Unknown")
+        # Prefer ngo_name for NGO-affiliated facility nodes
+        ngo_name_list = ngo_data.get("ngo_name", [])
+        name = ngo_name_list[0] if ngo_name_list else ngo_data.get("name", "Unknown")
+        ngo_names[source] = name
 
     # Build region desert counts for "need" metric
     region_deserts: dict[str, int] = {}

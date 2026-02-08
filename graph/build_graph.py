@@ -155,6 +155,18 @@ def deduplicate_rows(rows: list[dict]) -> list[dict]:
     by_pk: dict[str, dict] = {}
     source_counts: dict[str, set] = {}
 
+    # Pre-index org types and NGO names by pk to avoid O(n²) scan later
+    org_types_by_pk: dict[str, set[str]] = {}
+    ngo_names_by_pk: dict[str, list[str]] = {}
+    for row in rows:
+        pk = row.get("pk_unique_id")
+        if not pk:
+            continue
+        org_type = (row.get("organization_type") or "").lower()
+        org_types_by_pk.setdefault(pk, set()).add(org_type)
+        if org_type == "ngo":
+            ngo_names_by_pk.setdefault(pk, []).append(row.get("name", "Unknown"))
+
     for row in rows:
         pk = row.get("pk_unique_id")
         if not pk:
@@ -183,6 +195,16 @@ def deduplicate_rows(rows: list[dict]) -> list[dict]:
             # For region, prefer the one that normalized successfully
             if key == "_normalized_region" and row.get(key) and not existing.get(key):
                 existing[key] = row[key]
+
+    # Tag mixed NGO/facility entities: always route as facility with NGO metadata
+    for pk, entity in by_pk.items():
+        types_for_pk = org_types_by_pk.get(pk, set())
+        if "facility" in types_for_pk and "ngo" in types_for_pk:
+            entity["organization_type"] = "facility"
+            entity["_is_ngo"] = True
+            entity["_ngo_names"] = ngo_names_by_pk.get(pk, [])
+        elif "facility" in types_for_pk:
+            entity["organization_type"] = "facility"
 
     # Add source_count
     for pk, entity in by_pk.items():
@@ -350,6 +372,8 @@ def _add_facility(G: nx.MultiDiGraph, entity: dict, country_config: Any) -> None
         raw_procedures=entity.get("procedure", []),
         raw_equipment=entity.get("equipment", []),
         raw_capabilities=entity.get("capability", []),
+        is_ngo=entity.get("_is_ngo", False),
+        ngo_name=entity.get("_ngo_names", []),
     )
 
     # LOCATED_IN edge
@@ -362,6 +386,12 @@ def _add_facility(G: nx.MultiDiGraph, entity: dict, country_config: Any) -> None
                 edge_type=EDGE_LOCATED_IN,
                 city=entity.get("address_city"),
             )
+
+    # OPERATES_IN edge for NGO-affiliated facilities
+    if entity.get("_is_ngo", False) and region:
+        rid = region_id(region)
+        if G.has_node(rid):
+            G.add_edge(fid, rid, edge_type=EDGE_OPERATES_IN, source="ngo_facility")
 
     # HAS_SPECIALTY edges
     for spec in entity.get("specialties", []):

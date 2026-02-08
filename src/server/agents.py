@@ -106,7 +106,7 @@ For each flagged facility, clearly state:
 
 Be honest about data limitations. Flag uncertainty explicitly.""",
         tools=[*graph_tools, run_facility_debate],
-        model="gpt-4o",
+        model="gpt-5.2",
     )
 
     # PlanAgent: graph tools + mission debate tool
@@ -128,7 +128,7 @@ Present the debate results with:
 - Verification steps before committing
 - Honest unknowns""",
         tools=[*graph_tools, run_mission_debate],
-        model="gpt-4o",
+        model="gpt-5.2",
     )
 
     supervisor = Agent(
@@ -156,7 +156,7 @@ PLAN queries — deployment decisions, mission planning, resource allocation:
 
 Always hand off. Never answer directly. Just classify and delegate.""",
         handoffs=[explore_agent, verify_agent, plan_agent],
-        model="gpt-4o-mini",
+        model="gpt-5.2",
     )
 
     return supervisor
