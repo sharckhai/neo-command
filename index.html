@@ -3,8 +3,31 @@
 
 <head>
   <meta charset="UTF-8" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-  <title>MedScope Ghana — Agentic Health Facility Analyzer</title>
+  <title>NeoCommand — Agentic Health Facility Analyzer</title>
+
+  <!-- SEO & Meta Tags -->
+  <meta name="description"
+    content="NeoCommand is an advanced agentic intelligence platform for health facility analysis, mission planning, and gap detection using client-side RAG and IDP." />
+  <meta name="keywords"
+    content="NeoCommand, Health, Facility Analysis, Agentic AI, RAG, IDP, Mission Planning, Health Intelligence, GIS" />
+  <meta name="author" content="NeoCommand Intelligence" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://neocommand.ai/" />
+  <meta property="og:title" content="NeoCommand — Agentic Health Facility Analyzer" />
+  <meta property="og:description"
+    content="Advanced agentic intelligence for healthcare logistics, coverage analysis, and strategic mission planning." />
+  <meta property="og:image" content="icon.svg" />
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image" />
+  <meta property="twitter:title" content="NeoCommand " />
+  <meta property="twitter:description"
+    content="Agentic health facility analyzer with RAG search and mission planning." />
+  <meta property="twitter:image" content="icon.svg" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
@@ -262,7 +285,7 @@
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
     /* ══════════════════════════════════════════════════════════════════════
-       GHANA GEOCODING
+        GEOCODING
        ══════════════════════════════════════════════════════════════════════ */
     // Accra neighborhoods for sub-city resolution
     const GN = {
@@ -802,7 +825,7 @@
       return <div style={{ maxWidth: 620, margin: '0 auto', padding: '50px 20px' }}>
         <div className="fu" style={{ textAlign: 'center', marginBottom: 44 }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>🇬🇭</div>
-          <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-.03em', marginBottom: 8 }}>MedScope <span style={{ color: 'var(--O)' }}>Ghana</span></h1>
+          <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-.03em', marginBottom: 8 }}>NeoCommand <span style={{ color: 'var(--O)' }}></span></h1>
           <p style={{ color: 'var(--t2)', fontSize: 14, maxWidth: 460, margin: '0 auto', lineHeight: 1.6 }}>Agentic health facility analyzer with RAG search, step-level citations, IDP pipeline, and mission planning — all client-side.</p>
           <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 12, flexWrap: 'wrap' }}>
             <Badge color="teal">TF-IDF RAG</Badge><Badge color="purple">5-Agent Pipeline</Badge><Badge color="green">Step Citations</Badge><Badge color="accent">IDP Extraction</Badge>
@@ -1476,7 +1499,7 @@
             <div style={{ width: 8, height: 8, background: 'var(--t1)', borderRadius: '50%' }}></div>
             <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: '0.05em', fontFamily: 'IBM Plex Sans' }}>NEO</span>
           </div>
-          <div className="mono" style={{ fontSize: 10, color: 'var(--t3)', borderLeft: '1px solid var(--bd)', paddingLeft: 12, height: 20, display: 'flex', alignItems: 'center' }}>GHANA FACILITIES</div>
+          <div className="mono" style={{ fontSize: 10, color: 'var(--t3)', borderLeft: '1px solid var(--bd)', paddingLeft: 12, height: 20, display: 'flex', alignItems: 'center' }}> FACILITIES</div>
         </div>
 
         {total > 0 && <div style={{ display: 'flex', gap: 24 }}>
