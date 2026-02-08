@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 
 from server.config import settings
+from server.data.databricks import DatabricksClient
 from server.data.vector_store import LocalVectorStore
 from server.data.warehouse import DuckDbWarehouse
 
@@ -54,5 +55,8 @@ def vector_search(embedding: List[float], k: int = 5) -> List[dict]:
 
 
 def sql_query(sql: str) -> List[tuple]:
+    if settings.is_databricks():
+        client = DatabricksClient()
+        return client.query(sql)
     warehouse = DuckDbWarehouse()
     return warehouse.query(sql)
