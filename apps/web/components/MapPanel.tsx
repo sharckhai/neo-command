@@ -27,6 +27,7 @@ export default function MapPanel() {
   const mapRef = useRef<any>(null);
   const mapboxRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
+  const highlightMarkersRef = useRef<any[]>([]);
   const [status, setStatus] = useState<string>("Initializing map...");
   const [facilityCount, setFacilityCount] = useState<number>(0);
 
@@ -113,6 +114,31 @@ export default function MapPanel() {
           if (center && mapRef.current) {
             mapRef.current.flyTo({ center: [center[1], center[0]], zoom: 6.5 });
             setStatus(`Focused on ${region}`);
+          }
+        }
+        if (action.type === "highlight_facilities" && action.data?.facilities && mapRef.current && mapboxRef.current) {
+          highlightMarkersRef.current.forEach((m) => m.remove());
+          highlightMarkersRef.current = [];
+          const facilities = action.data.facilities as { name: string; lat: number; lng: number }[];
+          const bounds = new mapboxRef.current.LngLatBounds();
+          facilities.forEach((f) => {
+            if (f.lat == null || f.lng == null) return;
+            const el = document.createElement("div");
+            el.style.width = "14px";
+            el.style.height = "14px";
+            el.style.borderRadius = "999px";
+            el.style.background = "#00c853";
+            el.style.boxShadow = "0 0 0 5px rgba(0,200,83,0.25)";
+            el.title = f.name;
+            const marker = new mapboxRef.current.Marker(el)
+              .setLngLat([f.lng, f.lat])
+              .addTo(mapRef.current);
+            highlightMarkersRef.current.push(marker);
+            bounds.extend([f.lng, f.lat]);
+          });
+          if (facilities.length > 0) {
+            mapRef.current.fitBounds(bounds, { padding: 60, maxZoom: 10 });
+            setStatus(`Highlighted ${facilities.length} facilities`);
           }
         }
       });

@@ -13,7 +13,7 @@ export function parseEventStream(chunk: string): SseEvent[] {
     if (!payloadText) continue;
     try {
       const parsed = JSON.parse(payloadText) as SseEvent;
-      if (parsed.type === "token" || parsed.type === "final") {
+      if (parsed.type === "token" || parsed.type === "trace" || parsed.type === "final") {
         events.push(parsed);
       }
     } catch {

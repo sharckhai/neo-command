@@ -200,6 +200,239 @@ a {
   letter-spacing: 0.02em;
 }
 
+/* ── Chat message header with mode badge ── */
+
+.chat-message-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.mode-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: #fff;
+}
+
+.badge-explore { background: #16a34a; }
+.badge-verify  { background: #ea580c; }
+.badge-plan    { background: #2563eb; }
+
+/* ── Thinking indicator ── */
+
+.thinking-indicator {
+  text-align: center;
+  padding: 12px;
+  font-size: 13px;
+  color: rgba(16, 16, 24, 0.45);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+/* ── Trace panel ── */
+
+.trace-panel {
+  margin-top: 10px;
+  border-top: 1px solid rgba(16, 16, 24, 0.08);
+  padding-top: 8px;
+}
+
+.trace-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: rgba(16, 16, 24, 0.55);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 4px 0;
+}
+
+.trace-toggle:hover { color: var(--ink); }
+
+.trace-toggle-icon { font-size: 11px; }
+
+.trace-count {
+  margin-left: auto;
+  font-weight: 400;
+  font-size: 11px;
+  color: rgba(16, 16, 24, 0.4);
+}
+
+.trace-steps { padding: 8px 0 0 0; }
+
+.agent-step {
+  border-left: 2px solid rgba(16, 16, 24, 0.15);
+  padding: 8px 0 8px 14px;
+  position: relative;
+  margin-left: 6px;
+}
+
+.agent-step::before {
+  content: '';
+  position: absolute;
+  left: -5px;
+  top: 12px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(16, 16, 24, 0.2);
+}
+
+.agent-step.done::before { background: #16a34a; }
+
+.agent-step.running::before {
+  background: #ea580c;
+  animation: pulse 1s infinite;
+}
+
+.agent-step.error::before { background: #dc2626; }
+
+.agent-step-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.agent-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(16, 16, 24, 0.06);
+  color: var(--ink);
+}
+
+.agent-badge.done  { background: rgba(22, 163, 74, 0.12); color: #15803d; }
+.agent-badge.running { background: rgba(234, 88, 12, 0.12); color: #c2410c; }
+
+.agent-step-args,
+.agent-step-output {
+  font-size: 11px;
+  color: rgba(16, 16, 24, 0.55);
+  margin-bottom: 2px;
+  word-break: break-all;
+}
+
+.agent-step-output { color: rgba(16, 16, 24, 0.7); }
+
+.spin {
+  width: 10px;
+  height: 10px;
+  border: 2px solid rgba(234, 88, 12, 0.25);
+  border-top-color: #ea580c;
+  border-radius: 50%;
+  animation: spinner 0.6s linear infinite;
+}
+
+@keyframes spinner {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ── Markdown content ── */
+
+.markdown-content h2 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 10px 0 6px;
+}
+
+.markdown-content h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 8px 0 4px;
+}
+
+.markdown-content p { margin: 4px 0; }
+
+.markdown-content strong { font-weight: 700; }
+
+.markdown-content ul,
+.markdown-content ol {
+  padding-left: 20px;
+  margin: 4px 0;
+}
+
+.markdown-content li { margin: 2px 0; }
+
+.markdown-content code {
+  font-size: 12px;
+  background: rgba(16, 16, 24, 0.06);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: "SF Mono", "Consolas", monospace;
+}
+
+.markdown-content pre {
+  background: rgba(16, 16, 24, 0.06);
+  padding: 10px 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 6px 0;
+}
+
+.markdown-content pre code {
+  background: none;
+  padding: 0;
+}
+
+/* ── Starter prompts ── */
+
+.starter-prompts {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.starter-btn {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  text-align: left;
+  background: #ffffff;
+  border: 1px solid rgba(16, 16, 24, 0.12);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.starter-btn:hover {
+  border-color: var(--accent);
+  box-shadow: 0 2px 8px rgba(59, 110, 168, 0.12);
+}
+
+.starter-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(59, 110, 168, 0.1);
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.starter-text {
+  font-size: 14px;
+  color: var(--ink);
+  line-height: 1.4;
+}
+
 @media (max-width: 980px) {
   .app-shell {
     grid-template-columns: 1fr;
