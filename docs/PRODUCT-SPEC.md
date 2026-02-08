@@ -53,7 +53,11 @@ VirtueCommand is an agentic AI system that turns messy, scraped healthcare facil
 └─────────────────────────────┴──────────────────────────────┘
 ```
 
-The planner **never touches the map directly** — it updates reactively based on the conversation. Ask about Northern Region, the map zooms there. Ask about surgical capability, facilities light up by capability level.
+The map is **bidirectional** — chat drives the map AND the map drives the chat:
+- **Chat → Map**: Ask about Northern Region, the map zooms there. Ask about surgical capability, facilities light up by capability level.
+- **Map → Chat**: Click a facility marker to see its profile and verification status. Click a region to trigger "What's the healthcare landscape here?" Click empty space to ask "What's near here?" Select multiple facilities to compare them.
+
+The planner can use whichever feels natural — type a question or explore the map directly. Both interaction paths feed the same agent pipeline.
 
 ### 3.2 Three Interaction Modes
 
@@ -99,14 +103,14 @@ The Supervisor Agent classifies every query into one of three modes:
 ```
 ┌──────────────────────────────────────────────────────┐
 │                    FRONTEND                           │
-│  Next.js + Mapbox (dark) + WebSocket + Trace Panel   │
+│  Next.js + Mapbox (dark) + SSE streaming + Trace Panel│
 └────────────────────────┬─────────────────────────────┘
-                         │ WebSocket / SSE
+                         │ SSE (Server-Sent Events)
 ┌────────────────────────┴─────────────────────────────┐
 │                   BACKEND (FastAPI)                    │
 │                                                       │
 │  ┌─────────────────────────────────────────────────┐ │
-│  │         LangGraph Supervisor Agent               │ │
+│  │         OpenAI Agents SDK Supervisor Agent               │ │
 │  │    (classifies intent → routes to mode)          │ │
 │  └──────┬──────────────┬──────────────┬────────────┘ │
 │         │              │              │               │
@@ -130,27 +134,29 @@ The Supervisor Agent classifies every query into one of three modes:
 │                    DATA LAYER                         │
 │                                                       │
 │  Databricks SQL Warehouse ─── structured queries      │
-│  LanceDB ──────────────────── vector embeddings       │
+│  Databricks Vector Search ─── vector embeddings       │
 │  NetworkX Knowledge Graph ─── relationships + gaps    │
 └──────────────────────────────────────────────────────┘
 ```
 
 ### 4.1 Agents
 
-#### Supervisor Agent
-- LangGraph state machine
-- Classifies user intent into EXPLORE / VERIFY / PLAN
-- Routes to appropriate agent pipeline
-- Maintains conversation state for follow-ups
-- Decomposes complex queries into sub-tasks when needed
+#### Triage Agent (Supervisor)
+- OpenAI Agents SDK `Agent` with `handoffs` to specialized agents
+- Classifies user intent into EXPLORE / VERIFY / PLAN using `instructions` prompt
+- Uses SDK `handoff()` to delegate to the right specialist agent — the SDK handles context passing automatically
+- **Conversation state**: Full message history maintained in the SDK `Runner` context per session. Each agent in the handoff chain sees the full conversation. For long sessions, a background summarization call compresses older messages. This enables multi-turn flows like: recommend → planner pushes back → re-evaluate with new constraints.
+- Decomposes complex queries into sub-tasks when needed via sequential handoffs
 
 #### SQL Agent
-- Generates SQL against the cleaned facility table in Databricks
-- Handles structured queries: counts, comparisons, aggregations, filters
+- OpenAI Agents SDK `Agent` with Genie as a `function_tool`
+- Genie (Databricks text-to-SQL) generates SQL against the cleaned facility table
+- Agent validates Genie output, handles edge cases, formats results
 - Covers questions requiring exact numbers (how many, which region has most, etc.)
 
 #### Self-RAG Vector Search Agent
-- Searches LanceDB embeddings of procedure/equipment/capability free text
+- OpenAI Agents SDK `Agent` with vector search + self-reflection tools
+- Searches Databricks Vector Search embeddings of procedure/equipment/capability free text
 - **Self-reflective loop**: retrieve → grade relevance → filter false positives → expand search with synonyms if needed → return verified results
 - Distinguishes actual capabilities from referral mentions, aspirational language, and neighboring facility data
 - This is our **IDP Innovation** play (30% of judging)
@@ -178,6 +184,13 @@ The Supervisor Agent classifies every query into one of three modes:
 - Powers the Trace Panel in the UI
 - Provides **agentic-step-level citations** (the stretch goal judges specifically called out)
 
+**Graceful Failure Handling**
+- Every agent has a fallback response that is informative, not dead-end:
+  - **Empty SQL results**: "No facilities matching that query in the data. This could mean: (a) the capability exists but wasn't captured in our sources, (b) it genuinely doesn't exist in this region. Would you like me to check neighboring regions or broaden the search?"
+  - **Facility not found**: "I don't have data on [name]. Did you mean [fuzzy match suggestions]? Or I can search for [specialty] facilities in that area instead."
+  - **Low-confidence results**: "I found 3 matches, but confidence is low (all single-source Facebook data). Take these with caution — I'd recommend verifying before planning a mission."
+  - **Agent reasoning failure**: Show partial results with "Here's what I could determine. I wasn't able to assess [X] because [reason]."
+
 **Medical Knowledge Service**
 - Prompted LLM with domain-specific medical knowledge
 - Procedure-equipment mapping (what equipment does cataract surgery require?)
@@ -196,9 +209,13 @@ Raw CSV: 987 rows, 797 unique facilities/NGOs, 41 columns. Scraped from Facebook
 **Step 1: Clean & Normalize**
 - Parse JSON arrays in string fields (specialties, procedure, equipment, capability, phone_numbers, websites, affiliationTypeIds)
 - Normalize region names (39 raw values → 16 official regions)
-- Deduplicate: merge multi-source rows per entity (pk_unique_id) into single enriched records
+- **Deduplicate with merge strategy**: Group rows by `pk_unique_id`. For each entity, merge fields across sources using priority: (1) official website > directory > Facebook for structured fields, (2) union all free-text claims across sources, (3) for conflicting values (e.g., different bed counts), keep the value from the highest-quality source and flag the conflict in `quality_flags`. Result: 797 clean entity records from 987 raw rows.
 - Fix known data issues ("farmacy" → "pharmacy")
-- Geocode facilities (city → lat/lng via Ghana gazetteer)
+- **Geocode facilities (multi-strategy)**:
+  - Primary: city name → lat/lng via Ghana gazetteer lookup table
+  - Fallback 1: LLM extraction from capability/description text (many contain "Located at..." phrases) — 64 facilities have null cities but may have location in free text
+  - Fallback 2: Region centroid for facilities with only `address_stateOrRegion`
+  - Tag geocoding confidence: `exact` (address match), `city` (city centroid), `extracted` (LLM from text), `region` (region centroid), `unknown` (no location data)
 
 **Step 2: LLM Fingerprinting**
 - For each facility, LLM extracts structured capabilities from free-text procedure/equipment/capability fields
@@ -221,7 +238,7 @@ Raw CSV: 987 rows, 797 unique facilities/NGOs, 41 columns. Scraped from Facebook
 
 **Step 4: Index for Retrieval**
 - **Databricks SQL Warehouse**: All structured fields (counts, regions, types, capacities)
-- **LanceDB Vector Index**: Embeddings of free-text fields (procedure, equipment, capability, description), chunked at field level for precise citations, with metadata filters (region, facility type, specialty)
+- **Databricks Vector Search Index**: Embeddings of free-text fields (procedure, equipment, capability, description), chunked at field level for precise citations, with metadata filters (region, facility type, specialty). Falls back to LanceDB for local dev.
 - **NetworkX Graph**: In-memory knowledge graph for relationship traversal and gap detection
 
 ### 5.3 Data Quality Model
@@ -235,26 +252,83 @@ Every data point carries metadata:
 
 ---
 
-## 6. Tech Stack
+## 6. Provided Prompts & Pydantic Models
 
-| Layer | Technology | Why |
-|---|---|---|
-| **Orchestration** | LangGraph | Agent graphs, state management, conditional routing, conversation memory |
-| **LLM** | Claude (Anthropic API) | Medical reasoning quality; tool calling; long context for debate |
-| **Text-to-SQL** | Databricks Genie | Native integration with SQL warehouse; judges want to see Databricks |
-| **Vector Store** | LanceDB | Lightweight, embeddable, perfect for single-country dataset |
-| **Embeddings** | OpenAI text-embedding-3-small | Cost-effective, good retrieval quality |
-| **Knowledge Graph** | NetworkX | In-memory, fast traversal, 797 entities is tiny |
-| **Tracing** | MLflow (on Databricks) | Agent step logging, citation chains, experiment tracking |
-| **Frontend** | Next.js | Fast, full-stack React, WebSocket support |
-| **Map** | Mapbox GL JS (dark style) | Beautiful, performant, great API for reactive updates |
-| **Backend** | FastAPI (Python) | Async, WebSocket, easy LangGraph integration |
-| **Data Platform** | Databricks Free Edition | SQL warehouse, MLflow, Genie — judges want this front and center |
-| **Geocoding** | Pre-computed lookup table | Ghana cities → lat/lng, no runtime API dependency |
+The challenge provides 4 Python files (`data/prompts_and_pydantic_models/`) that define how the CSV data was originally extracted. These are our source-of-truth for understanding the data schema and can be reused/adapted in our agents.
+
+### 6.1 Organization Extraction (`organization_extraction.py`)
+- **Prompt**: `ORGANIZATION_EXTRACTION_SYSTEM_PROMPT` — classifies entities from text into facilities, NGOs, or other
+- **Model**: `OrganizationExtractionOutput` — `ngos: List[str]`, `facilities: List[str]`, `other_organizations: List[str]`
+- **Our use**: Adapt this prompt for the Triage Agent's intent classification. Reuse the facility/NGO distinction logic.
+
+### 6.2 Organization Information (`facility_and_ngo_fields.py`)
+- **Prompt**: `ORGANIZATION_INFORMATION_SYSTEM_PROMPT` — extracts structured fields for a single `{organization}`
+- **Models**: `BaseOrganization` → `Facility` (adds facilityTypeId, operatorTypeId, affiliationTypeIds, description, area, numberDoctors, capacity) and `NGO` (adds countries, missionStatement, organizationDescription)
+- **Our use**: These Pydantic models define our data model directly. Use `Facility` and `NGO` as the canonical schemas for our cleaned data. The `BaseOrganization` fields map 1:1 to CSV columns.
+
+### 6.3 Medical Specialties (`medical_specialties.py`)
+- **Prompt**: `MEDICAL_SPECIALTIES_SYSTEM_PROMPT` — 4-step reasoning chain to classify specialties from facility name + text
+- **Model**: `MedicalSpecialties` — `specialties: List[str]` (camelCase, case-sensitive)
+- **Key config**: `LEVEL_OF_SPECIALTIES = 1` (0th and 1st hierarchy levels). Depends on external `fdr.config.medical_specialties.MEDICAL_HIERATCHY`.
+- **Our use**: Reuse the facility name parsing rules and terminology mappings in our Medical Knowledge Service. The specialty list defines valid values for the `specialties` column.
+
+### 6.4 Free-Form Facts (`free_form.py`)
+- **Prompt**: `FREE_FORM_SYSTEM_PROMPT` — extracts procedures, equipment, capabilities from text + images for `{organization}`
+- **Model**: `FacilityFacts` — `procedure: List[str]`, `equipment: List[str]`, `capability: List[str]`
+- **Our use**: This is the most critical file. The `procedure`, `equipment`, and `capability` columns in the CSV were generated by this prompt. Understanding these category definitions is essential for:
+  - Building accurate vector search over these fields
+  - The Facility Intelligence Agent's co-occurrence validation (e.g., a procedure should have supporting equipment)
+  - The Self-RAG agent's relevance grading (knowing what counts as a "procedure" vs "capability")
+
+### 6.5 Pipeline Integration
+
+These 4 stages ran sequentially during data collection:
+```
+Web page → Stage 1: Extract org names → Stage 2: Extract structured fields
+         → Stage 3: Classify specialties → Stage 4: Extract free-form facts
+```
+
+We don't need to re-run this pipeline (the CSV is our input), but we reuse the prompts/models:
+- **At ingestion**: Use `FacilityFacts` categories to validate/re-parse the CSV's free-text fields
+- **At query time**: Use `MEDICAL_SPECIALTIES_SYSTEM_PROMPT` rules for specialty matching and synonym expansion
+- **For validation**: Use `ORGANIZATION_INFORMATION_SYSTEM_PROMPT`'s conservative extraction rules as the standard for our Facility Intelligence Agent
 
 ---
 
-## 7. Must-Have Question Coverage
+## 7. Databricks Free Edition Constraints
+
+The challenge is explicitly scoped for the Databricks Free Edition. Key limits to design around:
+- **SQL Warehouse**: Serverless, limited compute hours. Our dataset is 797 entities — queries are fast and cheap. Pre-compute aggregations where possible to minimize runtime queries.
+- **MLflow**: Free tier includes experiment tracking and model registry. Agent step tracing fits within limits for a hackathon demo.
+- **Model Serving**: Foundation model APIs (DBRX, Llama 3) available with rate limits. Use for SQL Agent and fingerprinting. Batch fingerprinting during pre-processing, not at runtime.
+- **Vector Search**: Mosaic AI Vector Search is available. If Free Edition limits are too restrictive, fall back to LanceDB locally with a note in the demo.
+- **Storage**: Unity Catalog with limited storage. 797 entities + embeddings is well under any limit.
+
+**Mitigation**: Pre-compute everything possible (fingerprints, embeddings, knowledge graph) so runtime only needs lightweight SQL queries and vector lookups. Heavy LLM reasoning (debate agents) goes through OpenAI API (GPT-4o), not Databricks compute.
+
+---
+
+## 8. Tech Stack
+
+| Layer | Technology | Why |
+|---|---|---|
+| **Orchestration** | OpenAI Agents SDK | Native OpenAI integration, agent handoffs, tool use, guardrails. Clean agent-to-agent delegation. |
+| **LLM (Reasoning)** | GPT-4o | Best-in-class reasoning for debate agents, medical knowledge, anomaly detection |
+| **LLM (Fast tasks)** | GPT-4o-mini | Cost-effective for fingerprinting, classification, geocoding extraction |
+| **Text-to-SQL** | Databricks Genie | Native integration with SQL warehouse; judges want to see Databricks |
+| **Vector Store** | Databricks Vector Search (Mosaic AI) | Sponsor alignment — keeps all data on Databricks platform. Falls back to LanceDB if Free Edition limits are hit. |
+| **Embeddings** | OpenAI text-embedding-3-small | Same provider as LLMs. Cost-effective, good retrieval quality for medical text |
+| **Knowledge Graph** | NetworkX | In-memory, fast traversal, 797 entities is tiny |
+| **Tracing** | MLflow (on Databricks) | Agent step logging, citation chains, experiment tracking |
+| **Frontend** | Next.js | Fast, full-stack React, SSE streaming support |
+| **Map** | Mapbox GL JS (dark style) | Beautiful, performant, great API for reactive + interactive updates. Map is core, not stretch — the entire product falls flat without it. |
+| **Backend** | FastAPI (Python) | Async, SSE streaming, native Python for OpenAI Agents SDK |
+| **Data Platform** | Databricks Free Edition | SQL warehouse, MLflow, Genie — judges want this front and center |
+| **Geocoding** | Multi-strategy (gazetteer + LLM extraction + region fallback) | 74% null regions, 6.5% null cities — single strategy won't cover it. LLM extracts "Located at..." from free text as fallback. |
+
+---
+
+## 9. Must-Have Question Coverage
 
 These 16 questions are what the agent **must** reliably handle (from the challenge's MoSCoW "Must Have" list):
 
@@ -278,7 +352,7 @@ These 16 questions are what the agent **must** reliably handle (from the challen
 
 ---
 
-## 8. Judging Criteria Alignment
+## 10. Judging Criteria Alignment
 
 ### Technical Accuracy — 35% (Our strongest play)
 
@@ -315,39 +389,42 @@ These 16 questions are what the agent **must** reliably handle (from the challen
 | What judges want | How we deliver |
 |---|---|
 | Natural language for non-technical users | Conversational chat with suggested starter prompts |
-| Intuitive interface | Two-panel (map + chat), no manual map interaction needed |
+| Intuitive interface | Two-panel (map + chat), bidirectional — chat drives map AND map drives chat |
 | Transparency | Collapsible Trace Panel shows agent reasoning for trust |
 | Follow-up dialogue | Conversation state maintained across turns |
 
 ---
 
-## 9. Stretch Goals (If Time Permits)
+## 11. Stretch Goals (If Time Permits)
 
 Ordered by impact-to-effort ratio:
 
-1. **Map visualization with coverage circles** — shade regions by healthcare density, draw catchment areas around facilities. High visual impact for demo.
-2. **PDF export for mission briefings** — generate a downloadable report from a PLAN conversation. Shows real-world integration.
-3. **H3 hex grid population overlay** — pre-compute population per hex cell using WorldPop data, overlay on map to show population vs. facility density gaps.
-4. **Travel time estimation** — use road network data to show that 50km in rural Ghana ≠ 50km in Accra. Changes the gap analysis fundamentally.
+1. **Browser verification agent** — given a facility URL, agent visits the page in real-time to verify current claims against what we have in the dataset. Demonstrates the system can self-update and cross-reference live data. Strong IDP differentiator.
+2. **PDF export for mission briefings** — generate a downloadable report from a PLAN conversation. Shows real-world workflow integration. Judges see something they could hand to a donor.
+3. **H3 hex grid population overlay** — pre-compute population per hex cell using WorldPop data, overlay on map to show population vs. facility density gaps. Visual impact for Social Impact criterion.
+4. **Travel time estimation** — use road network data to show that 50km in rural Ghana ≠ 50km in Accra. Changes the gap analysis fundamentally but complex to implement.
 
 ---
 
-## 10. Key Architectural Decisions
+## 12. Key Architectural Decisions
 
 | Decision | Choice | Rationale |
 |---|---|---|
+| OpenAI Agents SDK over LangGraph | Agents SDK | Native OpenAI model integration, clean handoff pattern between agents, built-in guardrails. No adapter layer needed between orchestrator and LLM. Simpler than LangGraph for our agent count. |
+| OpenAI models exclusively | GPT-4o + GPT-4o-mini | GPT-4o for reasoning/debate agents where quality matters. GPT-4o-mini for bulk fingerprinting, classification, and geocoding extraction. Single provider simplifies API management and aligns with OpenAI Agents SDK. |
 | Databricks for SQL + MLflow | Yes | Sponsor's platform. Judges want to see it. Free Edition is sufficient for 797 entities. |
+| Genie for Text-to-SQL | Yes | Databricks-native SQL generation. Understands the schema context. Stronger than hand-rolling SQL generation prompts. |
 | Knowledge graph over pure RAG | NetworkX in-memory | Enables gap detection via missing edges. Pure RAG can only find what exists, not what's missing. 797 nodes is tiny — no need for Neo4j. |
 | Self-RAG over basic RAG | Custom reflective loop | Free-text is messy. Basic retrieval returns false positives (referral mentions, aspirational language). Self-reflection filters these. Worth the extra LLM calls. |
 | Advocate/Skeptic over statistical anomaly detection | LLM debate pattern | Produces more nuanced, explainable verification than simple threshold-based flags. Also makes for a compelling demo. |
-| LanceDB over FAISS | LanceDB | Simpler API, persistent storage, metadata filtering built-in. FAISS requires more boilerplate. |
-| Next.js over Streamlit | Next.js | Reactive map + chat requires real frontend. Streamlit can't do split-pane with WebSocket-driven map updates. Worth the setup cost. |
+| Databricks Vector Search over LanceDB/FAISS | Databricks Mosaic AI | Keeps entire data layer on one platform — SQL, vectors, tracing all on Databricks. Stronger sponsor alignment. LanceDB as local dev fallback if Free Edition Vector Search has limits. |
+| Next.js over Streamlit | Next.js | Reactive + interactive map requires real frontend. Streamlit can't do bidirectional map-chat with SSE streaming. Worth the setup cost. |
 | Pre-computed fingerprinting | Yes | Move the hard work (LLM extraction from messy text) offline. Runtime queries are fast against pre-processed data. |
-| Claude over GPT-4 for reasoning | Claude | Longer context window for debate agents. Strong medical reasoning. But use GPT-4o-mini for bulk fingerprinting (cheaper). |
+| Reuse provided Pydantic models | Yes | The challenge provides `Facility`, `NGO`, `FacilityFacts`, `MedicalSpecialties` models. Using these as our canonical schemas ensures our data layer matches what judges expect. The prompts provide domain expertise we'd otherwise need to invent. |
 
 ---
 
-## 11. Data Model
+## 13. Data Model
 
 ### Facility (cleaned, deduplicated)
 
@@ -373,8 +450,9 @@ address_countryCode string      -- "GH"
 yearEstablished     int | null
 capacity            int | null  -- bed count (97.7% null)
 numberDoctors       int | null  -- (99.7% null)
-lat                 float       -- geocoded
+lat                 float       -- geocoded (may be city centroid or region centroid)
 lng                 float       -- geocoded
+geocode_confidence  enum        -- "exact" | "city" | "extracted" | "region" | "unknown"
 source_urls         string[]    -- all sources this entity was scraped from
 source_count        int         -- number of independent sources
 confidence          float       -- overall data confidence 0-100
@@ -405,7 +483,7 @@ organizationDescription string  -- neutral factual description
 
 ---
 
-## 12. Example Interactions
+## 14. Example Interactions
 
 ### EXPLORE Mode
 ```
@@ -486,13 +564,16 @@ unknowns: (1) reliable electricity, (2) sterilization capability,
 
 ---
 
-## 13. What We're NOT Building
+## 15. Scope Boundaries
 
-- No real-time data scraping or web crawling
-- No user authentication or multi-tenancy
-- No mobile app (web responsive is fine)
-- No financial transaction processing
-- No integration with EHR/EMR systems
-- No multi-country support (Ghana only for hackathon)
-- No "Won't Have" questions from the challenge doc (5.5, 6.2, 11.1, 11.2)
-- No travel time routing (stretch goal only)
+**Not in MVP (but possible future work):**
+- Real-time web scraping / browser verification agent (stretch goal #1 if time permits)
+- Travel time routing via road networks (stretch goal #4)
+- Multi-country support (Ghana only for hackathon, architecture is country-agnostic)
+- "Won't Have" questions from challenge doc (5.5, 6.2, 11.1, 11.2)
+
+**Out of scope entirely:**
+- User authentication or multi-tenancy
+- Mobile native app (web responsive is sufficient)
+- Financial transaction processing
+- EHR/EMR system integration
