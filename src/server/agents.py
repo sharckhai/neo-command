@@ -7,9 +7,10 @@ from openai import OpenAI
 
 from models.enums import GHANA_OFFICIAL_REGIONS
 from server.config import settings
-from server.data.warehouse import DuckDbWarehouse
 from server.models import ChatResponse, FacilitySummary, MapAction
-from server.tools import flag_facilities_with_missing_equipment
+from server.services.plan import build_plan_summary
+from server.services.search import facility_count_by_region, filter_facilities
+from server.services.verify import detect_equipment_gaps
 
 
 VERIFY_KEYWORDS = ["suspicious", "verify", "trust", "claim", "mismatch", "real", "credible", "lack", "missing"]
@@ -94,19 +95,119 @@ def _explore_response(message: str) -> ChatResponse:
     map_actions = build_map_actions(region)
 
     if settings.entities_path.exists():
-        warehouse = DuckDbWarehouse()
-        where_clauses = []
-        if region:
-            where_clauses.append(f"normalized_region = '{region}'")
-        if facility_type:
-            where_clauses.append(f"lower(facilityTypeId) = '{facility_type}'")
-        where_sql = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
-        count_sql = f"SELECT COUNT(*) FROM facilities{where_sql}"
-        count = warehouse.query(count_sql)[0][0]
-        summary_sql = (
-            "SELECT pk_unique_id, name, lat, lng, facilityTypeId, normalized_region, "
-            "address_city, confidence FROM facilities "
-        ) + where_sql + " LIMIT 200"
-        facilities_df = warehouse.query_df(summary_sql)
+        facilities_df = filter_facilities(region=region, facility_type=facility_type, limit=200)
+        count = len(facilities_df.index)
         facilities = _build_facility_summaries(facilities_df)
-        answer = f\"I found {count} {facility_type or 'facilities'}{(' in ' + region) if region else ''}.\"\n        return ChatResponse(\n            mode=\"explore\",\n            answer=answer,\n            citations=[],\n            map_actions=map_actions,\n            facilities=facilities,\n        )\n\n    answer = generate_answer(message, \"explore\")\n    return ChatResponse(\n        mode=\"explore\",\n        answer=answer,\n        citations=[],\n        map_actions=map_actions,\n        facilities=[],\n    )\n\n\ndef _verify_response(message: str) -> ChatResponse:\n    region = extract_region(message)\n    map_actions = build_map_actions(region)\n    if settings.entities_path.exists():\n        df = pd.read_parquet(settings.entities_path)\n        if region:\n            df = df[df[\"normalized_region\"] == region]\n        flagged = flag_facilities_with_missing_equipment(df.to_dict(\"records\"))\n        flagged = flagged[:10]\n        facility_rows = [\n            {\n                \"pk_unique_id\": row.get(\"pk_unique_id\"),\n                \"name\": row.get(\"name\"),\n                \"lat\": row.get(\"lat\"),\n                \"lng\": row.get(\"lng\"),\n                \"facilityTypeId\": row.get(\"facilityTypeId\"),\n                \"normalized_region\": row.get(\"normalized_region\"),\n                \"address_city\": row.get(\"address_city\"),\n                \"confidence\": row.get(\"confidence\"),\n            }\n            for row in flagged\n        ]\n        facilities = [FacilitySummary(**row) for row in facility_rows if row.get(\"pk_unique_id\")]\n        if flagged:\n            names = \", \".join([row.get(\"name\", \"Unknown\") for row in flagged[:5]])\n            answer = (\n                \"Flagged facilities with potential equipment gaps: \" + names +\n                \". Review each for missing prerequisites.\"\n            )\n        else:\n            answer = \"No obvious equipment gaps detected in the current slice.\"\n        return ChatResponse(\n            mode=\"verify\",\n            answer=answer,\n            citations=[],\n            map_actions=map_actions,\n            facilities=facilities,\n        )\n\n    answer = generate_answer(message, \"verify\")\n    return ChatResponse(\n        mode=\"verify\",\n        answer=answer,\n        citations=[],\n        map_actions=map_actions,\n        facilities=[],\n    )\n\n\ndef _plan_response(message: str) -> ChatResponse:\n    map_actions: List[MapAction] = []\n    if settings.entities_path.exists():\n        warehouse = DuckDbWarehouse()\n        rows = warehouse.query(\n            \"SELECT normalized_region, COUNT(*) as c FROM facilities \"\n            \"WHERE normalized_region IS NOT NULL GROUP BY normalized_region\"\n        )\n        scores = {row[0]: row[1] for row in rows if row[0]}\n        ranked = sorted(scores.items(), key=lambda item: item[1])\n        top = ranked[:3]\n        if top:\n            map_actions = build_map_actions(top[0][0])\n            answer = (\n                \"Top underserved regions by facility count: \"\n                + \", \".join([f\"{region} ({count})\" for region, count in top])\n                + \".\"\n            )\n        else:\n            answer = \"No region data available for planning.\"\n        return ChatResponse(\n            mode=\"plan\",\n            answer=answer,\n            citations=[],\n            map_actions=map_actions,\n            facilities=[],\n        )\n\n    answer = generate_answer(message, \"plan\")\n    return ChatResponse(\n        mode=\"plan\",\n        answer=answer,\n        citations=[],\n        map_actions=[],\n        facilities=[],\n    )\n\n\ndef build_chat_response(message: str) -> ChatResponse:\n    mode = classify_mode(message)\n    if mode == \"verify\":\n        return _verify_response(message)\n    if mode == \"plan\":\n        return _plan_response(message)\n    return _explore_response(message)\n*** End Patch"}В request code = "apply_patch"}```"}
+        answer = (
+            f"I found {count} {facility_type or 'facilities'}"
+            f"{(' in ' + region) if region else ''}."
+        )
+        return ChatResponse(
+            mode="explore",
+            answer=answer,
+            citations=[],
+            map_actions=map_actions,
+            facilities=facilities,
+        )
+
+    answer = generate_answer(message, "explore")
+    return ChatResponse(
+        mode="explore",
+        answer=answer,
+        citations=[],
+        map_actions=map_actions,
+        facilities=[],
+    )
+
+
+def _verify_response(message: str) -> ChatResponse:
+    region = extract_region(message)
+    map_actions = build_map_actions(region)
+    if settings.entities_path.exists():
+        df = pd.read_parquet(settings.entities_path)
+        if region:
+            df = df[df["normalized_region"] == region]
+        flagged = []
+        for row in df.to_dict("records"):
+            missing = detect_equipment_gaps(
+                procedures=row.get("procedure") or [],
+                equipment=row.get("equipment") or [],
+            )
+            if missing:
+                row_copy = dict(row)
+                row_copy["missing_equipment"] = missing
+                flagged.append(row_copy)
+        flagged = flagged[:10]
+        facility_rows = [
+            {
+                "pk_unique_id": row.get("pk_unique_id"),
+                "name": row.get("name"),
+                "lat": row.get("lat"),
+                "lng": row.get("lng"),
+                "facilityTypeId": row.get("facilityTypeId"),
+                "normalized_region": row.get("normalized_region"),
+                "address_city": row.get("address_city"),
+                "confidence": row.get("confidence"),
+            }
+            for row in flagged
+        ]
+        facilities = [FacilitySummary(**row) for row in facility_rows if row.get("pk_unique_id")]
+        if flagged:
+            names = ", ".join([row.get("name", "Unknown") for row in flagged[:5]])
+            answer = (
+                "Flagged facilities with potential equipment gaps: " + names +
+                ". Review each for missing prerequisites."
+            )
+        else:
+            answer = "No obvious equipment gaps detected in the current slice."
+        return ChatResponse(
+            mode="verify",
+            answer=answer,
+            citations=[],
+            map_actions=map_actions,
+            facilities=facilities,
+        )
+
+    answer = generate_answer(message, "verify")
+    return ChatResponse(
+        mode="verify",
+        answer=answer,
+        citations=[],
+        map_actions=map_actions,
+        facilities=[],
+    )
+
+
+def _plan_response(message: str) -> ChatResponse:
+    map_actions: List[MapAction] = []
+    if settings.entities_path.exists():
+        counts = facility_count_by_region()
+        answer = build_plan_summary(counts)
+        if counts:
+            top_region = sorted(counts.items(), key=lambda item: item[1])[0][0]
+            map_actions = build_map_actions(top_region)
+        return ChatResponse(
+            mode="plan",
+            answer=answer,
+            citations=[],
+            map_actions=map_actions,
+            facilities=[],
+        )
+
+    answer = generate_answer(message, "plan")
+    return ChatResponse(
+        mode="plan",
+        answer=answer,
+        citations=[],
+        map_actions=[],
+        facilities=[],
+    )
+
+
+def build_chat_response(message: str) -> ChatResponse:
+    mode = classify_mode(message)
+    if mode == "verify":
+        return _verify_response(message)
+    if mode == "plan":
+        return _plan_response(message)
+    return _explore_response(message)
