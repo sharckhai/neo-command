@@ -1,212 +1,229 @@
 # Tool Reference — VirtueCommand Self-RAG Agent
 
-## query_graph
+## 1. resolve_terms
 
-**Purpose**: Structured retrieval from the knowledge graph. Dispatches to one of 12 query functions.
-
-**Parameters**:
-- `query_type` (str, required): One of the query types below
-- `params` (str, required): JSON-encoded dict of parameters for the chosen query
-
-**Query types and their params**:
-
-| query_type | params | returns |
-|---|---|---|
-| `facility_details` | `{"fid": "facility::123"}` | Full facility dump with all edges |
-| `facility_mismatches` | `{"fid": "facility::123"}` | LACKS edges + mismatch_ratio |
-| `suspicious_facilities` | `{"min_ratio": 0.3}` | Facilities with high mismatch ratios |
-| `deserts_for_specialty` | `{"specialty_key": "ophthalmology"}` | Regions with no coverage |
-| `could_support` | `{"capability_key": "cataract_surgery"}` | Upgrade-ready facilities |
-| `regional_comparison` | `{"specialty_key": "ophthalmology"}` | All regions ranked |
-| `facilities_by_capability` | `{"capability_key": "cataract_surgery", "region": "northern"}` | Facility search (region optional) |
-| `facilities_by_equipment` | `{"equipment_key": "ultrasound", "region": "northern"}` | Equipment search (region optional) |
-| `specialty_distribution` | `{}` | Counts per specialty per region |
-| `nearest_facilities` | `{"lat": 5.6, "lng": -0.19, "capability_key": "...", "specialty_key": "...", "limit": 10}` | Geospatial search (filters optional) |
-| `list_specialties` | `{}` | All specialties with facility counts |
-| `graph_summary` | `{}` | Node/edge count stats |
-
-**When to use**: For any query about capabilities, equipment, specialties, or facilities that uses terms from the graph's canonical vocabulary (35 capabilities, 48 equipment types).
-
-**When NOT to use**: For terms that failed `check_vocabulary_coverage` (coverage_ratio < 0.3). Use `search_raw_text` instead.
-
----
-
-## list_vocabulary
-
-**Purpose**: Show the graph's canonical vocabulary so the agent (or user) knows what the graph can express.
+**Purpose**: Map user's natural-language medical terms to canonical graph keys. Determines retrieval strategy (graph, raw_text, or mixed). This is the Self-RAG vocabulary gate.
 
 **Parameters**:
-- `domain` (str, required): Either `"capabilities"` or `"equipment"`
-
-**Returns**: List of dicts with `key`, `display`, `category`, and `aliases` for each canonical term.
-
-**When to use**: When you need to understand what terms the graph recognizes, help reformulate a query, or explain a vocabulary gap to the user.
-
-**When NOT to use**: On every query. Only call when debugging or educating.
-
----
-
-## check_vocabulary_coverage
-
-**Purpose**: Detect whether query terms fall within the graph's vocabulary boundary. This is the critical first step in the Self-RAG reflection loop.
-
-**Parameters**:
-- `terms` (list[str], required): Medical terms extracted from the user's query
+- `terms` (list[str], required): Medical terms extracted from the user's query.
+- `show_all_vocabulary` (bool, optional): If True, include the full canonical vocabulary for relevant domains. Default False.
+- `domain` (str | None, optional): Filter to "capabilities", "equipment", or "specialties". Default None (all).
 
 **Returns**:
 ```json
 {
   "mapped": [{"term": "cataract surgery", "key": "cataract_surgery", "confidence": 0.8, "domain": "capabilities"}],
-  "unmapped": ["audiometry", "hearing test"],
-  "coverage_ratio": 0.33
+  "unmapped": ["audiometry"],
+  "coverage_ratio": 0.5,
+  "strategy": "mixed"
 }
 ```
 
-**When to use**: ALWAYS call this first on every query containing medical terms. The `coverage_ratio` determines your retrieval strategy.
+**When to use**: ALWAYS call this first on every query containing medical terms. The `strategy` field tells you what to do next:
+- `"graph"` → use graph tools (search_facilities, count_facilities, etc.)
+- `"raw_text"` → skip graph, go to search_raw_text
+- `"mixed"` → use both
 
-**When NOT to use**: For purely geographic queries ("list all regions") or metadata queries ("how many facilities total?").
-
----
-
-## search_raw_text
-
-**Purpose**: Escape hatch for queries that fall outside the graph's vocabulary. Searches across raw facility text fields using case-insensitive substring matching.
-
-**Parameters**:
-- `terms` (list[str], required): Search terms
-- `fields` (list[str] | None, optional): Which fields to search. Defaults to all: `["raw_procedures", "raw_capabilities", "raw_equipment", "description"]`
-- `region` (str | None, optional): Filter by region key (e.g., `"northern"`)
-
-**Returns**: List of matching facilities with the matched snippets per field.
-
-**When to use**:
-- When `check_vocabulary_coverage` returns `coverage_ratio < 0.3`
-- When you need to verify graph claims against raw text
-- When searching for concepts not in the canonical vocabulary
-
-**When NOT to use**: As the first choice for queries the graph CAN answer. The graph provides structured, confidence-scored results; raw text search is a fallback.
+**When NOT to use**: For purely geographic queries ("list all regions") or metadata queries ("how many facilities total?"). Use `explore_overview` directly.
 
 ---
 
-## get_facility_raw_text
+## 2. find_facility
 
-**Purpose**: Read all raw text fields for a specific facility. Used for cross-validation after graph queries.
-
-**Parameters**:
-- `facility_id` (str, required): The facility node ID (e.g., `"facility::123"`)
-
-**Returns**: Dict with `facility_id`, `name`, `region`, `raw_procedures`, `raw_capabilities`, `raw_equipment`, `description`.
-
-**When to use**:
-- After `query_graph` returns facility results, to verify specific claims
-- When checking for referral patterns, visiting specialists, or other caveats
-- When a facility's graph data seems suspicious (high mismatch ratio, unexpected capabilities)
-
-**When NOT to use**: For bulk searching — use `search_raw_text` for that.
-
----
-
-## query_absence
-
-**Purpose**: Query the graph's absence-encoding edges (LACKS, DESERT_FOR, COULD_SUPPORT). This is information that raw text search CANNOT provide — the graph infers what's missing.
+**Purpose**: Fuzzy-match a user-provided facility name to graph facility IDs. Essential bridge between natural language and graph node IDs.
 
 **Parameters**:
-- `query_type` (str, required): One of `"facility_lacks"`, `"region_deserts"`, `"could_support"`
-- `target` (str, required): The target identifier:
-  - For `facility_lacks`: facility ID (e.g., `"facility::123"`)
-  - For `region_deserts`: specialty key (e.g., `"ophthalmology"`)
-  - For `could_support`: capability key (e.g., `"cataract_surgery"`)
+- `name` (str, required): User-provided facility name (e.g. "Korle Bu", "Tamale Teaching").
+- `region` (str | None, optional): Narrow search to a region.
+- `limit` (int, optional): Max results (default 5).
 
 **Returns**:
-- `facility_lacks`: Missing equipment, claimed capabilities, mismatch ratio
-- `region_deserts`: Regions with no coverage, sorted by severity
-- `could_support`: Facilities ranked by readiness score with missing equipment lists
-
-**When to use**: For gap analysis, mission planning, and "what's missing?" questions. This is the graph's unique value — no other tool can answer these questions.
-
-**When NOT to use**: For "what exists?" questions — use `query_graph` for that.
-
----
-
-## explore_regions
-
-**Purpose**: List all 16 regions of Ghana with population, facility count, and desert count. Entry point for understanding the healthcare landscape.
-
-**Parameters**: None.
-
-**Returns**: List of dicts sorted by population descending:
 ```json
-[{"region_key": "greater_accra", "display_name": "Greater Accra", "population": 5455692, "facility_count": 180, "desert_count": 2}, ...]
+{
+  "query": "Korle Bu",
+  "matches": [{"facility_id": "facility::123", "name": "Korle Bu Teaching Hospital", "region": "greater_accra", "city": "Accra", "facility_type": "Teaching Hospital", "match_score": 0.8}]
+}
 ```
 
-**When to use**: As a first step in desert analysis, mission planning, or any query that needs a national overview. Also useful when the user asks "which regions..." or "compare regions."
-
-**When NOT to use**: When you already know the specific region to investigate — use `explore_region` directly.
+**When to use**: Whenever the user references a facility by name. Use the returned `facility_id` with `inspect_facility` or `get_requirements`.
 
 ---
 
-## explore_region
+## 3. search_facilities
 
-**Purpose**: Deep-dive into a specific region showing facilities, specialty distribution, deserts, NGOs, and neighbouring regions.
+**Purpose**: Universal multi-criteria facility search with optional geospatial radius. Finds facilities matching any combination of filters.
 
-**Parameters**:
-- `region_key` (str, required): Canonical region key. One of: `greater_accra`, `ashanti`, `western`, `western_north`, `central`, `eastern`, `volta`, `oti`, `northern`, `savannah`, `north_east`, `upper_east`, `upper_west`, `bono`, `bono_east`, `ahafo`.
+**Parameters** (all optional, but provide at least one filter):
+- `capability` (str): Canonical capability key (e.g. "cataract_surgery").
+- `equipment` (str): Canonical equipment key (e.g. "ultrasound").
+- `specialty` (str): Canonical specialty key (e.g. "ophthalmology").
+- `region` (str): Region key (e.g. "northern").
+- `facility_type` (str): Facility type filter (substring match).
+- `min_capacity` (int): Minimum bed/capacity count.
+- `near_lat` (float): Latitude for geospatial search.
+- `near_lng` (float): Longitude for geospatial search.
+- `radius_km` (float): Max distance in km (requires near_lat/near_lng).
+- `limit` (int): Max results (default 25).
+- `sort_by` (str): "relevance" (default), "distance", or "capacity".
 
-**Returns**: Dict with region metadata, facility list, specialty counts, desert list, NGO list, and neighbour keys.
+**Returns**:
+```json
+{
+  "total_matches": 12,
+  "facilities": [{"facility_id": "facility::42", "name": "...", "region": "northern", "city": "Tamale", "facility_type": "Hospital", "capacity": 200, "distance_km": 15.3, "matched_criteria": ["capability=cesarean_section", "region=northern"], "confidence": 0.85}]
+}
+```
 
-**When to use**: For "tell me about region X" queries, or as part of mission planning to understand regional context (existing facilities, NGO presence, accessibility via neighbours).
-
-**When NOT to use**: When you only need a facility list — use `explore_facilities` instead. When you only need desert info — use `query_absence(region_deserts, ...)`.
+**When to use**: For "which facilities have X?", "hospitals near Y that do Z", or any multi-filter search.
 
 ---
 
-## explore_facilities
+## 4. count_facilities
 
-**Purpose**: List facilities in a region with optional specialty filtering. More flexible than `facilities_by_capability` for browsing.
+**Purpose**: Count facilities grouped by a dimension. Returns distributions with counts and percentages. Essential for "how many" questions.
 
 **Parameters**:
-- `region_key` (str, required): Canonical region key (e.g. `"northern"`).
-- `specialty_key` (str | None, optional): Filter by specialty (e.g. `"ophthalmology"`).
+- `group_by` (str, required): One of: "region", "specialty", "capability", "facility_type", "equipment".
+- `capability` (str, optional): Filter to facilities with this capability.
+- `equipment` (str, optional): Filter to facilities with this equipment.
+- `specialty` (str, optional): Filter to facilities with this specialty.
+- `region` (str, optional): Filter to this region.
+- `min_confidence` (float, optional): Minimum edge confidence (default 0.5).
+
+**Returns**:
+```json
+{
+  "total_matching": 742,
+  "group_by": "region",
+  "groups": [{"key": "greater_accra", "display_name": "Greater Accra", "count": 180, "percentage": 24.3}]
+}
+```
+
+**When to use**: For counting questions: "How many hospitals have cardiology?", "Which region has the most surgical facilities?", "Distribution of equipment across regions".
+
+---
+
+## 5. search_raw_text
+
+**Purpose**: Free-text substring search across raw facility text fields. Escape hatch when the graph's vocabulary doesn't cover the query.
+
+**Parameters**:
+- `terms` (list[str], required): Search terms.
+- `fields` (list[str] | None, optional): Fields to search. Default: all raw text fields.
+- `region` (str | None, optional): Region filter.
 - `limit` (int, optional): Max results (default 50).
 
-**Returns**: List of facility dicts with capabilities, sorted by capability count descending.
+**Returns**: List of matching facilities with matched text snippets per field.
 
-**When to use**: When browsing what's available in a region, especially when filtering by specialty rather than specific capability. Good for "what facilities are in Northern Region?" or "ophthalmology facilities in Ashanti?"
-
-**When NOT to use**: For capability-specific searches — use `query_graph(facilities_by_capability, ...)`. For equipment searches — use `query_graph(facilities_by_equipment, ...)`.
-
----
-
-## get_equipment_requirements
-
-**Purpose**: Look up required and recommended equipment for a medical capability. Essential for gap analysis.
-
-**Parameters**:
-- `capability_key` (str, required): Canonical capability key (e.g. `"cataract_surgery"`, `"cesarean_section"`, `"dialysis"`).
-
-**Returns**:
-```json
-{"capability": "cataract_surgery", "required": ["operating_theatre", "operating_microscope", "autoclave", "anesthesia_machine"], "recommended": ["phacoemulsification_machine", "a_scan_biometry", "slit_lamp", "keratometer"]}
-```
-
-**When to use**: After finding a facility's equipment (via `facility_details`) to determine what's missing. Key for mission planning ("what would we need to bring?") and verification ("does this facility really have everything needed?").
-
-**When NOT to use**: To find what equipment a facility HAS — use `query_graph(facility_details, ...)` for that. This tool shows what's NEEDED, not what's present.
+**When to use**:
+- When `resolve_terms` returns `strategy: "raw_text"` or `"mixed"`
+- For concepts not in the canonical vocabulary
+- For cross-validation of graph claims
+- For workforce/staffing questions ("visiting specialists", "surgical camps")
 
 ---
 
-## get_specialty_overview
+## 6. inspect_facility
 
-**Purpose**: Bridge between specialties and capabilities. Shows which capabilities facilities of a given specialty actually have, with counts and percentages.
+**Purpose**: Deep dive into a single facility — all graph edges, raw text, and equipment gap analysis in one call.
 
 **Parameters**:
-- `specialty_key` (str, required): Canonical specialty key (e.g. `"ophthalmology"`, `"gynecologyAndObstetrics"`, `"surgery"`, `"dentistry"`).
+- `facility_id` (str, required): The facility node ID (e.g. "facility::123").
+- `include_raw_text` (bool, optional): Include raw text for cross-validation (default True).
+- `include_gap_analysis` (bool, optional): Include LACKS edges and mismatch ratio (default True).
+
+**Returns**: Complete facility profile with specialties, capabilities, equipment, lacks, could_support, mismatch_ratio, and raw text.
+
+**When to use**: After `find_facility` resolves a name to an ID. For "What services does X offer?", verification, and facility-level gap analysis.
+
+---
+
+## 7. get_requirements
+
+**Purpose**: Look up required/recommended equipment for a capability, optionally comparing against a specific facility.
+
+**Parameters**:
+- `capability` (str, required): Canonical capability key.
+- `facility_id` (str | None, optional): Facility ID for comparison.
 
 **Returns**:
 ```json
-{"specialty": "ophthalmology", "facility_count": 45, "capabilities": [{"capability": "eye_examination", "count": 30, "percentage": 66.7}, {"capability": "cataract_surgery", "count": 12, "percentage": 26.7}]}
+{
+  "capability": "cataract_surgery",
+  "required": ["operating_theatre", "operating_microscope", "autoclave", "anesthesia_machine"],
+  "recommended": ["phacoemulsification_machine", "a_scan_biometry"],
+  "facility_comparison": {"facility_id": "facility::42", "has_required": ["operating_theatre"], "missing_required": ["operating_microscope", "autoclave", "anesthesia_machine"], "compliance_score": 0.25}
+}
 ```
 
-**When to use**: To understand what a specialty actually means in terms of capabilities. Useful before desert analysis (to know which capabilities to check) and for "what do ophthalmology facilities typically offer?" questions.
+**When to use**: For gap analysis, mission planning ("what equipment would we need to bring?"), and verification ("does this facility have what it needs?").
 
-**When NOT to use**: To find facilities with a specific capability — use `query_graph(facilities_by_capability, ...)` instead.
+---
+
+## 8. find_gaps
+
+**Purpose**: Discover what is MISSING — the graph's unique value over raw text.
+
+**Parameters**:
+- `gap_type` (str, required): One of:
+  - `"deserts"` — regions lacking a specialty (requires `specialty`).
+  - `"could_support"` — facilities ready for capability upgrade (requires `capability`).
+  - `"ngo_gaps"` — regions with high need but no NGO presence.
+  - `"equipment_compliance"` — % of facilities with required equipment for a capability.
+- `specialty` (str, optional): Required for "deserts".
+- `capability` (str, optional): Required for "could_support", optional for "equipment_compliance".
+- `region` (str, optional): Region filter for "equipment_compliance".
+- `min_readiness` (float, optional): Minimum readiness for "could_support" (default 0.6).
+
+**When to use**: For gap analysis, mission planning, and "what's missing?" questions. ALWAYS use this for absence-related queries — `search_raw_text` cannot answer what's missing.
+
+---
+
+## 9. find_cold_spots
+
+**Purpose**: Geographic coverage analysis — identify regions where a capability/specialty is absent within a given radius.
+
+**Parameters**:
+- `capability` (str | None): Canonical capability key. Provide either this or specialty.
+- `specialty` (str | None): Canonical specialty key. Provide either this or capability.
+- `radius_km` (float, optional): Maximum acceptable distance (default 100 km).
+- `population_weighted` (bool, optional): Sort by population-weighted severity (default True).
+
+**Returns**: Cold spots with severity scores plus coverage summary (regions/population covered vs uncovered).
+
+**When to use**: For "where are the largest gaps in coverage for X within Y km?", geographic equity analysis.
+
+---
+
+## 10. detect_anomalies
+
+**Purpose**: Flag facilities with suspicious data patterns for quality review.
+
+**Parameters**:
+- `check_type` (str, required): One of:
+  - `"procedure_vs_size"` — many high-complexity procedures relative to bed capacity.
+  - `"equipment_vs_claims"` — many capabilities but few equipment items.
+  - `"feature_correlation"` — expected equipment missing for claimed capabilities.
+  - `"bed_or_ratio"` — unusual bed-to-surgical-capability ratios.
+- `region` (str, optional): Region filter.
+- `threshold` (float, optional): Sensitivity (0–1, lower = more sensitive).
+- `limit` (int, optional): Max flagged facilities (default 20).
+
+**Returns**: Flagged facilities with anomaly scores and explanations.
+
+**When to use**: For data quality questions: "Which facilities claim unrealistic procedures?", "Where do capabilities not match equipment?", "What correlations seem wrong?"
+
+---
+
+## 11. explore_overview
+
+**Purpose**: High-level landscape exploration — national overview, region deep-dive, or specialty breakdown.
+
+**Parameters**:
+- `scope` (str, required): One of:
+  - `"national"` — graph stats, all regions with population/facility/desert counts, top specialties. No key needed.
+  - `"region"` — deep-dive: facilities, specialty counts, deserts, NGOs, neighbours. Requires key.
+  - `"specialty"` — capabilities, facility count. Requires key.
+- `key` (str | None): Required for "region" (e.g. "northern") and "specialty" (e.g. "ophthalmology") scopes.
+
+**When to use**: For orientation queries: "Tell me about region X", "What's the national landscape?", "What capabilities does ophthalmology encompass?"
