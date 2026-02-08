@@ -1,5 +1,4 @@
-from __future__ import annotations
-
+"""FastAPI server for VirtueCommand."""
 from __future__ import annotations
 
 import json
@@ -9,11 +8,17 @@ import pandas as pd
 from fastapi import FastAPI
 from sse_starlette.sse import EventSourceResponse
 
-from server.agents import build_chat_response
+from server.agents import init_agents, run_agent_stream
 from server.config import settings
 from server.models import ChatRequest, FacilitySummary
 
-app = FastAPI()
+app = FastAPI(title="VirtueCommand API")
+
+
+@app.on_event("startup")
+async def startup():
+    """Initialize knowledge graph and agents."""
+    init_agents()
 
 
 def _format_sse_event(payload: dict) -> str:
@@ -31,18 +36,8 @@ async def facilities() -> list[FacilitySummary]:
         return []
     try:
         df = pd.read_parquet(settings.entities_path)
-        subset = df[
-            [
-                "pk_unique_id",
-                "name",
-                "lat",
-                "lng",
-                "facilityTypeId",
-                "normalized_region",
-                "address_city",
-                "confidence",
-            ]
-        ]
+        subset = df[["pk_unique_id", "name", "lat", "lng", "facilityTypeId",
+                      "normalized_region", "address_city", "confidence"]]
         subset = subset.dropna(subset=["lat", "lng"])
         return [FacilitySummary(**row) for row in subset.head(2000).to_dict("records")]
     except Exception:
@@ -51,13 +46,8 @@ async def facilities() -> list[FacilitySummary]:
 
 @app.post("/api/chat")
 async def chat(request: ChatRequest) -> EventSourceResponse:
-    response = build_chat_response(request.message)
-
     async def event_generator() -> AsyncIterator[str]:
-        for token in response.answer.split():
-            payload = {"type": "token", "text": token + " "}
-            yield _format_sse_event(payload)
-        final_payload = {"type": "final", "payload": response.model_dump()}
-        yield _format_sse_event(final_payload)
+        async for event in run_agent_stream(request.message, request.session_id):
+            yield _format_sse_event(event)
 
     return EventSourceResponse(event_generator())

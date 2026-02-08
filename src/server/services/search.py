@@ -9,6 +9,7 @@ from server.config import settings
 from server.data.databricks import DatabricksClient
 from server.data.vector_store import LocalVectorStore
 from server.data.warehouse import DuckDbWarehouse
+from server.services.retrieval import self_rag_search
 
 
 def load_entities(parquet_path: Optional[Path] = None) -> pd.DataFrame:
@@ -112,6 +113,10 @@ def vector_search(embedding: List[float], k: int = 5) -> List[dict]:
         return store.search(embedding, k=k)
     except Exception:
         return []
+
+
+def vector_search_query(query: str, k: int = 5) -> List[dict]:
+    return self_rag_search(query, k=k)
 
 
 def sql_query(sql: str) -> List[tuple]:

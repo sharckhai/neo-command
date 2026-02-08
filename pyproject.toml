@@ -3,14 +3,15 @@ name = "virtuecommand"
 version = "0.1.0"
 description = "VirtueCommand data pipeline"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
   "pandas",
   "pyarrow",
-  "pydantic",
-  "openai",
+  "pydantic>=2.0",
+  "openai>=1.0",
+  "openai-agents>=0.0.7",
   "tiktoken",
-  "python-dotenv",
+  "python-dotenv>=1.2.1",
   "typer",
   "rich",
   "tenacity",
@@ -18,12 +19,13 @@ dependencies = [
   "fastapi",
   "uvicorn",
   "sse-starlette",
-  "openai-agents",
   "mlflow",
   "databricks-sdk",
   "databricks-vectorsearch",
   "duckdb",
   "httpx",
+  "geopy>=2.4",
+  "networkx>=3.2",
 ]
 
 [project.optional-dependencies]
@@ -34,8 +36,9 @@ local = [
   "lancedb",
 ]
 dev = [
-  "pytest",
+  "pytest>=8.0",
   "ruff",
+  "ipython>=8.0",
 ]
 
 [project.scripts]

@@ -16,9 +16,9 @@ class DuckDbWarehouse:
 
     def __post_init__(self) -> None:
         self._conn = duckdb.connect(database=":memory:")
+        path = str(self.entities_path).replace("'", "''")
         self._conn.execute(
-            "CREATE VIEW facilities AS SELECT * FROM read_parquet(?)",
-            [str(self.entities_path)],
+            f"CREATE VIEW facilities AS SELECT * FROM read_parquet('{path}')"
         )
 
     def query(self, sql: str) -> List[Tuple]:
