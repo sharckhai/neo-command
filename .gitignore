@@ -4,9 +4,6 @@ __pycache__/
 *$py.class
 
 *.pdf
-*.csv
-*.gpickle
-*.graphml
 output/
 *.tif
 

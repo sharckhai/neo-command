@@ -156,8 +156,8 @@ Neo/
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/<your-org>/virtuecommand.git
-cd virtuecommand
+git clone https://github.com/sharckhai/neo-command.git
+cd neo-command
 ```
 
 ### 2. Set Up Environment Variables
@@ -171,28 +171,12 @@ OPENAI_API_KEY=sk-...
 # Optional - map visualization
 NEXT_PUBLIC_MAPBOX_TOKEN=pk....
 MAPBOX_TOKEN=pk....
-
-# Optional - Databricks cloud deployment
-DATABRICKS_HOST=
-DATABRICKS_TOKEN=
-DATABRICKS_WAREHOUSE_ID=
-DATABRICKS_GENIE_ENDPOINT=
-
-# Optional - experiment tracking
-MLFLOW_TRACKING_URI=
 ```
 
 ### 3. Install Python Dependencies
 
 ```bash
-python -m venv .venv
-
-# Linux/Mac:
-source .venv/bin/activate
-# Windows:
-.venv\Scripts\activate
-
-pip install -e ".[local,dev]"
+uv sync
 ```
 
 ### 4. Install Frontend Dependencies
@@ -203,23 +187,28 @@ npm install
 cd ../..
 ```
 
-### 5. Run the Data Pipeline (Optional)
+### 5. Build the Knowledge Graph (Optional — pre-built in repo)
 
-If you have the Virtue Foundation Ghana CSV dataset:
+Generate the NetworkX knowledge graph from the Virtue Foundation Ghana CSV dataset:
 
 ```bash
-pipeline clean data/ghana_facilities.csv
-pipeline geocode
-pipeline fingerprint
-pipeline embed
-pipeline upload
+PYTHONPATH=src uv run python -m graph.build_graph \
+  "data/Virtue Foundation Ghana v0.3 - Sheet1.csv" \
+  --country ghana \
+  --output-dir data
 ```
 
-This produces `output/step4_entities.parquet` and `output/step4_embeddings.parquet`.
+This parses 987 facility records, deduplicates them into ~800 unique entities, geocodes locations, normalizes free-text fields to canonical vocabularies, and runs inference (LACKS, COULD_SUPPORT, DESERT_FOR edges). Outputs:
+
+- `data/knowledge_graph.gpickle` — fast-loading pickle for runtime
+- `data/knowledge_graph.graphml` — for visualization in Gephi
+- `data/knowledge_graph_meta.json` — node/edge counts and build timestamp
+
 
 ### 6. Start the Backend
 
 ```bash
+source .venv/bin/activate
 uvicorn server.app:app --reload --port 8000
 ```
 
