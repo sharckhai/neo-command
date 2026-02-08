@@ -22,14 +22,13 @@ def make_all_tools(G):
 
 
 def make_analyst_tools(G):
-    """Tools for the Analyst agent: landscape + facility details + context."""
+    """Tools for the Analyst agent: landscape + facility details (graph only)."""
     return [
         *make_resolve_tools(G),
         *make_overview_tools(G),
         *make_search_tools(G),
         *make_gap_tools(G),
         *make_inspect_tools(G),
-        *make_context_tools(G),
     ]
 
 
@@ -42,11 +41,9 @@ def make_verifier_tools(G):
 
 
 def make_planner_tools(G):
-    """Tools for the Planner agent: context enrichment + facility verification."""
+    """Tools for the Planner agent: region context enrichment only."""
     return [
         *make_context_tools(G),
-        *make_inspect_tools(G),
-        *_pick(make_search_tools(G), {"search_facilities"}),
     ]
 
 
