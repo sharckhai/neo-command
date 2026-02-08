@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, List
+from typing import List
 
 import pandas as pd
 
@@ -21,9 +21,21 @@ class LocalVectorStore:
             raise RuntimeError("lancedb is required for LocalVectorStore") from exc
         return lancedb.connect(str(self.db_path))
 
+    def _list_tables(self, db) -> List[str]:
+        tables = db.list_tables()
+        if isinstance(tables, list):
+            return tables
+        if hasattr(tables, "tables"):
+            return list(tables.tables)
+        try:
+            return list(tables)
+        except TypeError:
+            return []
+
     def upsert(self, df: pd.DataFrame) -> None:
         db = self._connect()
-        if self.table_name in db.table_names():
+        tables = self._list_tables(db)
+        if self.table_name in tables:
             table = db.open_table(self.table_name)
             table.add(df)
         else:
@@ -31,7 +43,8 @@ class LocalVectorStore:
 
     def search(self, embedding: List[float], k: int = 5) -> List[dict]:
         db = self._connect()
-        if self.table_name not in db.table_names():
+        tables = self._list_tables(db)
+        if self.table_name not in tables:
             return []
         table = db.open_table(self.table_name)
         results = table.search(embedding).limit(k).to_list()
