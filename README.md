@@ -1,3 +1,4 @@
+
 # VirtueCommand
 
 **AI-powered health facility intelligence system for Ghana.** VirtueCommand ingests facility data from multiple sources, builds a medical knowledge graph, and exposes a multi-agent system that answers operational questions — from "which facilities offer dialysis in Northern Region?" to "where should we deploy a surgical mission team?"
