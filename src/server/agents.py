@@ -9,7 +9,13 @@ from models.enums import GHANA_OFFICIAL_REGIONS
 from server.config import settings
 from server.models import ChatResponse, FacilitySummary, MapAction
 from server.services.plan import build_plan_summary
-from server.services.search import facility_count_by_region, filter_facilities
+from server.services.search import (
+    count_keyword_by_region,
+    facility_count_by_region,
+    filter_facilities,
+    filter_facilities_by_keyword,
+    rare_procedures,
+)
 from server.services.verify import detect_equipment_gaps
 
 
@@ -46,6 +52,20 @@ def detect_facility_type(message: str) -> Optional[str]:
     for facility_type in FACILITY_TYPES:
         if facility_type in text:
             return facility_type
+    return None
+
+
+def extract_keyword(message: str) -> Optional[str]:
+    text = message.lower()
+    for marker in ["have", "perform", "do", "treat", "treating", "with", "for"]:
+        if marker in text:
+            term = text.split(marker, 1)[1]
+            for cutoff in [" in ", " within ", " near ", " around ", " across "]:
+                if cutoff in term:
+                    term = term.split(cutoff, 1)[0]
+            term = term.strip(" ?.")
+            if len(term) > 2:
+                return term
     return None
 
 
@@ -93,6 +113,65 @@ def _explore_response(message: str) -> ChatResponse:
     region = extract_region(message)
     facility_type = detect_facility_type(message)
     map_actions = build_map_actions(region)
+    keyword = extract_keyword(message)
+
+    if keyword and settings.entities_path.exists():
+        matches_df = filter_facilities_by_keyword(keyword, region=region, limit=200)
+        if facility_type and not matches_df.empty:
+            matches_df = matches_df[
+                matches_df["facilityTypeId"].str.lower() == facility_type.lower()
+            ]
+        count = len(matches_df.index)
+        facilities = _build_facility_summaries(matches_df)
+        answer = (
+            f"I found {count} {facility_type or 'facilities'}"
+            f"{(' in ' + region) if region else ''} mentioning {keyword}."
+        )
+        return ChatResponse(
+            mode="explore",
+            answer=answer,
+            citations=[],
+            map_actions=map_actions,
+            facilities=facilities,
+        )
+
+    if "cold spot" in message.lower() or "desert" in message.lower():
+        if keyword and settings.entities_path.exists():
+            region_counts = count_keyword_by_region(keyword)
+            ranked = sorted(region_counts.items(), key=lambda item: item[1])[:3]
+            answer = (
+                "Largest cold spots for "
+                + keyword
+                + ": "
+                + ", ".join([f"{region} ({count})" for region, count in ranked])
+                + "."
+            )
+            return ChatResponse(
+                mode="explore",
+                answer=answer,
+                citations=[],
+                map_actions=map_actions,
+                facilities=[],
+            )
+
+    if "very few facilities" in message.lower() or "dependent on" in message.lower():
+        if settings.entities_path.exists():
+            rare = rare_procedures()
+            if rare:
+                answer = (
+                    "Procedures with the fewest facilities: "
+                    + ", ".join([f"{name} ({count})" for name, count in rare])
+                    + "."
+                )
+            else:
+                answer = "No procedure coverage data available."
+            return ChatResponse(
+                mode="explore",
+                answer=answer,
+                citations=[],
+                map_actions=map_actions,
+                facilities=[],
+            )
 
     if settings.entities_path.exists():
         facilities_df = filter_facilities(region=region, facility_type=facility_type, limit=200)
