@@ -18,21 +18,13 @@ def make_all_tools(G):
     ]
 
 
-def make_explorer_tools(G):
-    """Tools for the Explorer agent: landscape, gaps, distributions."""
+def make_analyst_tools(G):
+    """Tools for the Analyst agent: landscape + facility details."""
     return [
         *make_resolve_tools(G),
         *make_overview_tools(G),
-        *_pick(make_search_tools(G), {"count_facilities", "search_raw_text"}),
+        *make_search_tools(G),
         *make_gap_tools(G),
-    ]
-
-
-def make_fact_tools(G):
-    """Tools for the FactAgent: facility lookups, searches, equipment."""
-    return [
-        *make_resolve_tools(G),
-        *_pick(make_search_tools(G), {"find_facility", "search_facilities"}),
         *make_inspect_tools(G),
     ]
 
