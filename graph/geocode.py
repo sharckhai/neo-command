@@ -106,29 +106,51 @@ def geocode_facility(
     city = entity.get("address_city")
     name = entity.get("name")
     country = "Ghana"
+    city_geocoding = getattr(country_config, "CITY_GEOCODING", {})
+    city_to_region = getattr(country_config, "CITY_TO_REGION", {})
+    region_metadata = getattr(country_config, "REGION_METADATA", {})
 
-    # Tier 1: Full address
-    if address_line1 and city:
+    city_key = city.lower().strip() if city else None
+
+    def _city_coords() -> tuple[float, float] | None:
+        """City centroid from config, or region centroid via CITY_TO_REGION."""
+        if not city_key:
+            return None
+        # Direct city coords
+        coords = city_geocoding.get(city_key)
+        if coords:
+            return coords
+        # Neighborhood/suburb → region → region centroid
+        region = city_to_region.get(city_key)
+        if region and region in region_metadata:
+            meta = region_metadata[region]
+            return (meta["lat"], meta["lng"])
+        return None
+
+    # Tier 1: City/neighborhood in config (instant)
+    config_coords = _city_coords()
+
+    # No street address → use config coords or Nominatim city lookup
+    if not address_line1:
+        if config_coords:
+            return config_coords
+        if city:
+            result = _nominatim_query(f"{city}, {country}")
+            if result:
+                return result
+            time.sleep(1)
+        return None
+
+    # Has street address → try Nominatim for street-level, fallback to config
+    if city:
         query = f"{address_line1}, {city}, {country}"
         result = _nominatim_query(query)
         if result:
             return result
         time.sleep(1)
 
-    # Tier 2: Name + city
-    if name and city:
-        query = f"{name}, {city}, {country}"
-        result = _nominatim_query(query)
-        if result:
-            return result
-        time.sleep(1)
-
-    # Tier 3: City centroid fallback
-    city_geocoding = getattr(country_config, "CITY_GEOCODING", {})
-    if city:
-        coords = city_geocoding.get(city.lower().strip())
-        if coords:
-            return coords
+        if config_coords:
+            return config_coords
 
     return None
 
@@ -174,8 +196,12 @@ def batch_geocode(
     cache = _load_cache()
     results: dict[str, tuple[float, float]] = {}
     nominatim_calls = 0
+    cache_hits = 0
+    city_fallbacks = 0
+    failed = 0
+    total = sum(1 for r in rows if r.get("pk_unique_id"))
 
-    for row in rows:
+    for i, row in enumerate(rows):
         pk = row.get("pk_unique_id")
         if not pk:
             continue
@@ -184,18 +210,32 @@ def batch_geocode(
         if pk in cache:
             coords = cache[pk]
             results[pk] = (coords[0], coords[1])
+            cache_hits += 1
             continue
 
         # Geocode
+        name = row.get("name", "?")
+        city = row.get("address_city", "?")
         coords = geocode_facility(row, country_config)
         if coords:
             cache[pk] = [coords[0], coords[1]]
             results[pk] = coords
-            nominatim_calls += 1
+            # Check if it was a city fallback (no Nominatim call)
+            city_geocoding = getattr(country_config, "CITY_GEOCODING", {})
+            city_key = (row.get("address_city") or "").lower().strip()
+            if city_key and city_geocoding.get(city_key) == coords:
+                city_fallbacks += 1
+                print(f"  [{cache_hits + nominatim_calls + city_fallbacks + failed}/{total}] {name} ({city}) -> city centroid {coords}")
+            else:
+                nominatim_calls += 1
+                print(f"  [{cache_hits + nominatim_calls + city_fallbacks + failed}/{total}] {name} ({city}) -> nominatim {coords}")
         else:
-            nominatim_calls += 1  # still counts as attempted
+            failed += 1
+            print(f"  [{cache_hits + nominatim_calls + city_fallbacks + failed}/{total}] {name} ({city}) -> FAILED")
 
     _save_cache(cache)
+    print(f"\nGeocoding done: {len(results)}/{total} resolved "
+          f"(cache={cache_hits}, nominatim={nominatim_calls}, city={city_fallbacks}, failed={failed})")
     logger.info(
         "Geocoded %d/%d facilities (%d Nominatim lookups, %d from cache)",
         len(results),

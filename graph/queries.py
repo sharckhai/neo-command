@@ -11,11 +11,13 @@ from typing import Any
 
 import networkx as nx
 
+from graph.config.ghana import REGION_ADJACENCY, REGION_METADATA
+from graph.medical_requirements import CAPABILITY_REQUIREMENTS
 from graph.schema import (
     NODE_FACILITY, NODE_REGION, NODE_SPECIALTY, NODE_CAPABILITY, NODE_EQUIPMENT,
     EDGE_HAS_CAPABILITY, EDGE_HAS_EQUIPMENT, EDGE_HAS_SPECIALTY,
     EDGE_LACKS, EDGE_COULD_SUPPORT, EDGE_DESERT_FOR, EDGE_LOCATED_IN,
-    facility_id, region_id, specialty_id, capability_id,
+    facility_id, region_id, specialty_id, capability_id, equipment_id,
 )
 
 
@@ -527,3 +529,256 @@ def find_nearest_facilities(
 
     results.sort(key=lambda x: x["distance_km"])
     return results[:limit]
+
+
+# ---------------------------------------------------------------------------
+# Region exploration
+# ---------------------------------------------------------------------------
+
+def list_regions(G: nx.MultiDiGraph) -> list[dict]:
+    """List all 16 regions with population, facility count, and desert count.
+
+    Returns list sorted by population descending.
+    """
+    region_stats: dict[str, dict] = {}
+
+    # Initialize from region nodes
+    for nid, ndata in G.nodes(data=True):
+        if ndata.get("node_type") != NODE_REGION:
+            continue
+        key = nid.split("::", 1)[1] if "::" in nid else nid
+        region_stats[key] = {
+            "region_key": key,
+            "display_name": ndata.get("name", key),
+            "population": ndata.get("population", 0),
+            "facility_count": 0,
+            "desert_count": 0,
+        }
+
+    # Count facilities per region
+    for nid, ndata in G.nodes(data=True):
+        if ndata.get("node_type") != NODE_FACILITY:
+            continue
+        region = ndata.get("region")
+        if region and region in region_stats:
+            region_stats[region]["facility_count"] += 1
+
+    # Count deserts per region
+    for source, _, edata in G.edges(data=True):
+        if edata.get("edge_type") != EDGE_DESERT_FOR:
+            continue
+        key = source.split("::", 1)[1] if "::" in source else source
+        if key in region_stats:
+            region_stats[key]["desert_count"] += 1
+
+    results = list(region_stats.values())
+    results.sort(key=lambda x: x["population"], reverse=True)
+    return results
+
+
+def get_region_details(G: nx.MultiDiGraph, region_key: str) -> dict:
+    """Deep-dive into a region: facilities, specialties, deserts, NGOs, neighbours.
+
+    Args:
+        region_key: Canonical region key (e.g. "northern", "greater_accra").
+    """
+    rid = region_id(region_key)
+    if not G.has_node(rid):
+        return {"error": f"Region '{region_key}' not found"}
+
+    rdata = G.nodes[rid]
+
+    # Facilities in this region
+    facilities = []
+    specialty_counts: dict[str, int] = {}
+    for nid, ndata in G.nodes(data=True):
+        if ndata.get("node_type") != NODE_FACILITY:
+            continue
+        if ndata.get("region") != region_key:
+            continue
+        facilities.append({
+            "facility_id": nid,
+            "name": ndata.get("name", "Unknown"),
+            "city": ndata.get("city"),
+            "facility_type": ndata.get("facility_type"),
+        })
+        # Count specialties
+        for _, target, edata in G.edges(nid, data=True):
+            if edata.get("edge_type") == EDGE_HAS_SPECIALTY and edata.get("confidence", 0) >= 0.5:
+                skey = target.split("::", 1)[1] if "::" in target else target
+                specialty_counts[skey] = specialty_counts.get(skey, 0) + 1
+
+    # Deserts for this region
+    deserts = []
+    for _, target, edata in G.edges(rid, data=True):
+        if edata.get("edge_type") != EDGE_DESERT_FOR:
+            continue
+        skey = target.split("::", 1)[1] if "::" in target else target
+        deserts.append({
+            "specialty": skey,
+            "severity": edata.get("severity", 0),
+            "nearest_region_with_service": edata.get("nearest_region_with_service"),
+        })
+    deserts.sort(key=lambda x: x["severity"], reverse=True)
+
+    # NGOs operating in this region
+    ngos = []
+    for source, target, edata in G.edges(data=True):
+        if edata.get("edge_type") != EDGE_OPERATES_IN:
+            continue
+        if target != rid:
+            continue
+        ngo_data = G.nodes.get(source, {})
+        ngos.append({
+            "ngo_id": source,
+            "name": ngo_data.get("name", "Unknown"),
+        })
+
+    # Neighbours from adjacency config
+    neighbours = REGION_ADJACENCY.get(region_key, [])
+
+    return {
+        "region_key": region_key,
+        "display_name": rdata.get("name", region_key),
+        "population": rdata.get("population", 0),
+        "capital": REGION_METADATA.get(region_key, {}).get("capital"),
+        "facility_count": len(facilities),
+        "facilities": facilities,
+        "specialty_counts": specialty_counts,
+        "deserts": deserts,
+        "ngos": ngos,
+        "neighbours": neighbours,
+    }
+
+
+def get_facilities_in_region(
+    G: nx.MultiDiGraph,
+    region_key: str,
+    specialty_key: str | None = None,
+    limit: int = 50,
+) -> list[dict]:
+    """List facilities in a region, optionally filtered by specialty.
+
+    Args:
+        region_key: Canonical region key (e.g. "northern").
+        specialty_key: Optional specialty to filter by (e.g. "ophthalmology").
+        limit: Max results to return (default 50).
+    """
+    sid = specialty_id(specialty_key) if specialty_key else None
+    results = []
+
+    for nid, ndata in G.nodes(data=True):
+        if ndata.get("node_type") != NODE_FACILITY:
+            continue
+        if ndata.get("region") != region_key:
+            continue
+
+        if sid:
+            has_spec = any(
+                edata.get("edge_type") == EDGE_HAS_SPECIALTY
+                and target == sid
+                and edata.get("confidence", 0) >= 0.5
+                for _, target, edata in G.edges(nid, data=True)
+            )
+            if not has_spec:
+                continue
+
+        # Gather capabilities for this facility
+        capabilities = []
+        for _, target, edata in G.edges(nid, data=True):
+            if edata.get("edge_type") == EDGE_HAS_CAPABILITY:
+                ckey = target.split("::", 1)[1] if "::" in target else target
+                capabilities.append(ckey)
+
+        results.append({
+            "facility_id": nid,
+            "name": ndata.get("name", "Unknown"),
+            "city": ndata.get("city"),
+            "facility_type": ndata.get("facility_type"),
+            "capabilities": capabilities,
+        })
+
+    results.sort(key=lambda x: len(x["capabilities"]), reverse=True)
+    return results[:limit]
+
+
+# ---------------------------------------------------------------------------
+# Equipment & capability analysis
+# ---------------------------------------------------------------------------
+
+def get_capability_requirements(capability_key: str) -> dict:
+    """Get required and recommended equipment for a capability.
+
+    Args:
+        capability_key: Canonical capability key (e.g. "cataract_surgery").
+
+    Returns dict with required, recommended lists and the capability key.
+    Returns error if capability not found in CAPABILITY_REQUIREMENTS.
+    """
+    reqs = CAPABILITY_REQUIREMENTS.get(capability_key)
+    if reqs is None:
+        return {
+            "error": f"Unknown capability: '{capability_key}'",
+            "available_capabilities": sorted(CAPABILITY_REQUIREMENTS.keys()),
+        }
+    return {
+        "capability": capability_key,
+        "required": reqs.get("required", []),
+        "recommended": reqs.get("recommended", []),
+    }
+
+
+def get_specialty_capabilities(G: nx.MultiDiGraph, specialty_key: str) -> dict:
+    """Which capabilities do facilities of a specialty have, with counts and percentages.
+
+    Args:
+        specialty_key: Canonical specialty key (e.g. "ophthalmology").
+    """
+    sid = specialty_id(specialty_key)
+    if not G.has_node(sid):
+        return {"error": f"Specialty '{specialty_key}' not found"}
+
+    # Find all facilities with this specialty
+    facility_ids = []
+    for source, target, edata in G.edges(data=True):
+        if edata.get("edge_type") != EDGE_HAS_SPECIALTY:
+            continue
+        if target != sid:
+            continue
+        if edata.get("confidence", 0) < 0.5:
+            continue
+        sdata = G.nodes.get(source, {})
+        if sdata.get("node_type") == NODE_FACILITY:
+            facility_ids.append(source)
+
+    total = len(facility_ids)
+    if total == 0:
+        return {
+            "specialty": specialty_key,
+            "facility_count": 0,
+            "capabilities": [],
+        }
+
+    # Count capabilities across these facilities
+    cap_counts: dict[str, int] = {}
+    for fid in facility_ids:
+        for _, target, edata in G.edges(fid, data=True):
+            if edata.get("edge_type") == EDGE_HAS_CAPABILITY:
+                ckey = target.split("::", 1)[1] if "::" in target else target
+                cap_counts[ckey] = cap_counts.get(ckey, 0) + 1
+
+    capabilities = [
+        {
+            "capability": key,
+            "count": count,
+            "percentage": round(count / total * 100, 1),
+        }
+        for key, count in cap_counts.items()
+    ]
+    capabilities.sort(key=lambda x: x["count"], reverse=True)
+
+    return {
+        "specialty": specialty_key,
+        "facility_count": total,
+        "capabilities": capabilities,
+    }
