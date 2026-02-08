@@ -32,3 +32,13 @@ class DatabricksClient:
             with conn.cursor() as cursor:
                 cursor.execute(sql)
                 return cursor.fetchall()
+
+    def rest_headers(self) -> dict:
+        if not self.token:
+            raise RuntimeError("Missing Databricks token")
+        return {"Authorization": f"Bearer {self.token}"}
+
+    def rest_base_url(self) -> str:
+        if not self.host:
+            raise RuntimeError("Missing Databricks host")
+        return f"https://{self.host}"
