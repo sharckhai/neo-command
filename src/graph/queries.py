@@ -792,22 +792,31 @@ def count_and_group_facilities(
             counts[key] = counts.get(key, 0) + 1
 
         elif group_by == "specialty":
+            seen_specs: set[str] = set()
             for _, target, edata in G.edges(nid, data=True):
                 if edata.get("edge_type") == EDGE_HAS_SPECIALTY:
                     skey = _extract_key(target)
-                    counts[skey] = counts.get(skey, 0) + 1
+                    if skey not in seen_specs:
+                        seen_specs.add(skey)
+                        counts[skey] = counts.get(skey, 0) + 1
 
         elif group_by == "capability":
+            seen_caps: set[str] = set()
             for _, target, edata in G.edges(nid, data=True):
                 if edata.get("edge_type") == EDGE_HAS_CAPABILITY:
                     ckey = _extract_key(target)
-                    counts[ckey] = counts.get(ckey, 0) + 1
+                    if ckey not in seen_caps:
+                        seen_caps.add(ckey)
+                        counts[ckey] = counts.get(ckey, 0) + 1
 
         elif group_by == "equipment":
+            seen_equip: set[str] = set()
             for _, target, edata in G.edges(nid, data=True):
                 if edata.get("edge_type") == EDGE_HAS_EQUIPMENT:
                     ekey = _extract_key(target)
-                    counts[ekey] = counts.get(ekey, 0) + 1
+                    if ekey not in seen_equip:
+                        seen_equip.add(ekey)
+                        counts[ekey] = counts.get(ekey, 0) + 1
 
     # Build display names
     groups = []
