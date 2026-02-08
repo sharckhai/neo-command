@@ -107,15 +107,22 @@ def add_desert_edges(
         population = region_meta[region_key].get("population", 0)
 
         for spec_key in all_specialties:
-            facility_count = region_specialty_counts.get(region_key, {}).get(spec_key, 0)
+            # Count facilities whose specialty key contains spec_key
+            # e.g. spec_key="gynecology" matches "gynecologyAndObstetrics"
+            spec_lower = spec_key.lower()
+            region_specs = region_specialty_counts.get(region_key, {})
+            facility_count = sum(
+                c for k, c in region_specs.items()
+                if spec_lower in k.lower()
+            )
 
             if facility_count >= min_facilities:
                 continue
 
-            # Find regions that DO have this specialty
+            # Find regions that DO have this specialty (same substring logic)
             regions_with = {
                 r for r, specs in region_specialty_counts.items()
-                if specs.get(spec_key, 0) >= min_facilities
+                if sum(c for k, c in specs.items() if spec_lower in k.lower()) >= min_facilities
             }
 
             nearest = _find_nearest_with_service(region_key, regions_with, adjacency)
