@@ -2,10 +2,10 @@
 
 VirtueCommand is a chat-driven healthcare intelligence system for NGO mission planners. It turns messy facility data into verified, geocoded, and searchable intelligence, then presents it through a map-first conversational UI.
 
-## What’s Included
+## Whatâ€™s Included
 - **Data pipeline** (`src/pipeline`) that cleans, geocodes, fingerprints, embeds, and uploads facility data.
 - **Backend** (`src/server`) that provides SSE chat streaming, facility endpoints, and agent logic (Explore / Verify / Plan).
-- **Frontend** (`apps/web`) built with Next.js and Mapbox for the two-panel map + chat experience.
+- **Frontend** (`apps/web`) exists in this repo but is owned by teammates; backend work should not depend on it.
 
 ## Quick Start
 1. Set up environment variables (see `docs/SETUP.md`).

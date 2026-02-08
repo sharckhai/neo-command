@@ -50,14 +50,7 @@ Endpoints:
 - `POST /api/chat` (SSE)
 
 ## Frontend
-Install dependencies and run Next.js:
-```
-cd apps/web
-npm install
-npm run dev
-```
-
-The UI expects the backend at the same origin. If you run them on different ports, add a proxy or update fetch URLs in `apps/web/components/ChatPanel.tsx` and `apps/web/components/MapPanel.tsx`.
+The frontend is handled by teammates; backend work does not require it. The `apps/web` project can still be run independently if you want to see the UI.
 
 ## Notes
 - GraphRAG / Knowledge Graph is intentionally excluded.
