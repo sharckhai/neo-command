@@ -739,7 +739,7 @@ def match_capabilities(text: str) -> list[tuple[str, float]]:
 # Pass 2: LLM batch classification (cached)
 # ---------------------------------------------------------------------------
 
-_CACHE_PATH = Path(__file__).parent.parent / "data" / "normalization_cache.json"
+_CACHE_PATH = Path(__file__).parent.parent.parent / "data" / "normalization_cache.json"
 
 
 def _load_cache() -> dict:

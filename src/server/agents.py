@@ -1,23 +1,39 @@
-"""VirtueCommand agent orchestration using OpenAI Agents SDK."""
+"""VirtueCommand agent orchestration — multi-agent architecture.
+
+Supervisor (main agent) delegates to three data-gathering sub-agents
+via function_tool wrappers, then synthesizes the final answer.
+"""
 from __future__ import annotations
 
 import json
 import logging
-from typing import Any, AsyncIterator, Optional
+from pathlib import Path
+from typing import AsyncIterator
 
 from agents import Agent, Runner, function_tool
 from agents.stream_events import RunItemStreamEvent
 
 from server.config import settings
-from server.models import ChatResponse, FacilitySummary, MapAction
+from server.models import ChatResponse, MapAction
 from server.tracing import TraceRecorder
 
 logger = logging.getLogger(__name__)
+
+_PROMPTS_DIR = Path(__file__).resolve().parent.parent.parent / "prompts"
 
 # Module-level state
 _graph = None
 _supervisor = None
 
+
+def _load_prompt(filename: str) -> str:
+    """Load a prompt markdown file from the prompts/ directory."""
+    return (_PROMPTS_DIR / filename).read_text()
+
+
+# ---------------------------------------------------------------------------
+# Initialisation
+# ---------------------------------------------------------------------------
 
 def init_agents(graph_dir: str = "data") -> None:
     """Initialize graph and agents. Called at server startup."""
@@ -33,16 +49,81 @@ def init_agents(graph_dir: str = "data") -> None:
         _supervisor = None
 
 
-def _create_debate_tools():
-    """Create function_tools that wrap the debate services."""
+# ---------------------------------------------------------------------------
+# Sub-agent factories
+# ---------------------------------------------------------------------------
+
+def _create_explorer(G) -> Agent:
+    from agent.tools import make_explorer_tools
+    return Agent(
+        name="Explorer",
+        instructions=_load_prompt("explorer.md"),
+        tools=make_explorer_tools(G),
+        model="gpt-5.2",
+    )
+
+
+def _create_fact_agent(G) -> Agent:
+    from agent.tools import make_fact_tools
+    return Agent(
+        name="FactAgent",
+        instructions=_load_prompt("fact-agent.md"),
+        tools=make_fact_tools(G),
+        model="gpt-5.2",
+    )
+
+
+def _create_verifier(G) -> Agent:
+    from agent.tools import make_verifier_tools
+    return Agent(
+        name="Verifier",
+        instructions=_load_prompt("verifier.md"),
+        tools=make_verifier_tools(G),
+        model="gpt-5.2",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Supervisor construction
+# ---------------------------------------------------------------------------
+
+def _create_supervisor(G) -> Agent:
+    """Create the Supervisor agent with agent-as-tool wrappers."""
+    explorer = _create_explorer(G)
+    fact_agent = _create_fact_agent(G)
+    verifier = _create_verifier(G)
+
+    # --- Agent-as-tool wrappers ---
+
+    @function_tool
+    async def ask_explorer(query: str) -> str:
+        """Ask the Explorer about healthcare landscape, distributions,
+        gaps, deserts, cold spots, or NGO coverage."""
+        result = await Runner.run(explorer, query)
+        return result.final_output
+
+    @function_tool
+    async def ask_fact_agent(query: str) -> str:
+        """Ask the FactAgent for facility details: lookups by name,
+        multi-criteria searches, equipment checks, geospatial queries."""
+        result = await Runner.run(fact_agent, query)
+        return result.final_output
+
+    @function_tool
+    async def ask_verifier(query: str) -> str:
+        """Ask the Verifier to assess data quality: anomaly detection,
+        claim validation, equipment compliance checks."""
+        result = await Runner.run(verifier, query)
+        return result.final_output
+
+    # --- Debate tools ---
 
     @function_tool
     async def run_facility_debate(facility_data_json: str) -> str:
         """Run an Advocate/Skeptic debate to verify a facility's capability claims.
 
-        Call this after inspecting a facility with inspect_facility to get a
-        balanced credibility assessment. The debate produces a confidence score
-        and specific flags.
+        Call this after getting facility data from ask_fact_agent or ask_verifier
+        to get a balanced credibility assessment with confidence score.
 
         Args:
             facility_data_json: JSON string with keys:
@@ -61,8 +142,9 @@ def _create_debate_tools():
         """Run a three-advocate debate to compare deployment options for a
         medical mission. Each advocate argues for a different region.
 
-        Call this after gathering gap data via find_gaps and explore_overview
-        to get a structured recommendation with tradeoffs.
+        Call this after gathering gap and facility data from ask_explorer
+        and ask_fact_agent to get a structured comparison with
+        Coverage/Readiness/Equity scores.
 
         Args:
             constraints_and_data_json: JSON string with keys:
@@ -73,96 +155,25 @@ def _create_debate_tools():
         from server.services.mission_planner import plan_mission_tool_fn
         return await plan_mission_tool_fn(constraints_and_data_json)
 
-    return run_facility_debate, run_mission_debate
+    # --- Build Supervisor ---
 
-
-def _create_supervisor(G) -> Agent:
-    """Create the Supervisor agent with handoffs to specialists."""
-    from agent.self_rag_agent import create_agent as create_explore_agent
-    from agent.tools import make_all_tools
-
-    explore_agent = create_explore_agent(G)
-    graph_tools = make_all_tools(G)
-    run_facility_debate, run_mission_debate = _create_debate_tools()
-
-    # VerifyAgent: graph tools + debate tool
-    verify_agent = Agent(
-        name="VerifyAgent",
-        instructions="""You are VirtueCommand's verification specialist. You evaluate whether facility capability claims are trustworthy.
-
-WORKFLOW:
-1. Call resolve_terms on any medical terms in the query
-2. Use detect_anomalies to find facilities with suspicious patterns
-3. Use inspect_facility to deep-dive into flagged facilities
-4. Use get_requirements to check equipment compliance
-5. For the most suspicious facilities, call run_facility_debate with the facility's data to get an Advocate/Skeptic analysis with confidence score
-
-For each flagged facility, clearly state:
-- What they claim vs what evidence exists
-- Missing prerequisite equipment
-- Source count and quality
-- Advocate and Skeptic perspectives (from the debate)
-- Your confidence assessment
-
-Be honest about data limitations. Flag uncertainty explicitly.""",
-        tools=[*graph_tools, run_facility_debate],
-        model="gpt-5.2",
-    )
-
-    # PlanAgent: graph tools + mission debate tool
-    plan_agent = Agent(
-        name="PlanAgent",
-        instructions="""You are VirtueCommand's mission planning specialist. You help NGO teams decide where to deploy medical missions.
-
-WORKFLOW:
-1. Call resolve_terms on the medical specialty/capability mentioned
-2. Use find_gaps with gap_type="deserts" to find regions lacking the specialty
-3. Use find_cold_spots for geographic coverage analysis
-4. Use explore_overview for region context on top candidate regions
-5. Use find_gaps with gap_type="could_support" to find upgrade-ready facilities
-6. Call run_mission_debate with user constraints + candidate region data to get a structured comparison with Coverage/Readiness/Equity scores
-
-Present the debate results with:
-- 2-3 ranked deployment options with scores
-- A clear recommendation with caveats
-- Verification steps before committing
-- Honest unknowns""",
-        tools=[*graph_tools, run_mission_debate],
-        model="gpt-5.2",
-    )
-
-    supervisor = Agent(
+    return Agent(
         name="Supervisor",
-        instructions="""You are VirtueCommand's triage agent. Classify user queries and hand off to the right specialist.
-
-EXPLORE queries — questions about what exists, counts, facility lookups, geographic search:
-- "How many hospitals have cardiology?"
-- "What services does Tamale Teaching Hospital offer?"
-- "Which region has the most clinics?"
-- "Hospitals within 50km of Tamale doing surgery?"
--> Hand off to VirtueCommand (the explore agent)
-
-VERIFY queries — questions about data quality, trust, suspicious claims:
-- "Which facilities have suspicious capability claims?"
-- "Does this hospital really have an ICU?"
-- "Facilities claiming surgery but lacking equipment?"
--> Hand off to VerifyAgent
-
-PLAN queries — deployment decisions, mission planning, resource allocation:
-- "Where should I send my ophthalmology team?"
-- "I have 2 surgeons for 10 days. Where's the most impact?"
-- "Where are the biggest gaps for eye care?"
--> Hand off to PlanAgent
-
-Always hand off. Never answer directly. Just classify and delegate.""",
-        handoffs=[explore_agent, verify_agent, plan_agent],
+        instructions=_load_prompt("supervisor.md"),
+        tools=[
+            ask_explorer,
+            ask_fact_agent,
+            ask_verifier,
+            run_facility_debate,
+            run_mission_debate,
+        ],
         model="gpt-5.2",
     )
 
-    return supervisor
 
-
-# ---------- Fallback keyword routing (no API key) ----------
+# ---------------------------------------------------------------------------
+# Fallback (no API key)
+# ---------------------------------------------------------------------------
 
 _VERIFY_KW = ["suspicious", "verify", "trust", "claim", "mismatch", "real", "credible", "lack", "missing"]
 _PLAN_KW = ["deploy", "send", "mission", "where should", "recommend", "prioritize", "plan"]
@@ -191,10 +202,12 @@ def _fallback_response(message: str) -> ChatResponse:
     )
 
 
-# ---------- Main entry point ----------
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
 
 async def run_agent_stream(message: str, session_id: str = "default") -> AsyncIterator[dict]:
-    """Run the agent pipeline and yield SSE-ready event dicts.
+    """Run the Supervisor agent and yield SSE-ready event dicts.
 
     Yields:
         {"type": "trace", "step": {...}}  - tool call events
@@ -212,7 +225,6 @@ async def run_agent_stream(message: str, session_id: str = "default") -> AsyncIt
     answer_parts = []
     facilities_mentioned = []
     regions_mentioned = []
-    mode = "explore"  # will be updated based on agent handoff
 
     result = Runner.run_streamed(_supervisor, message)
 
@@ -240,7 +252,6 @@ async def run_agent_stream(message: str, session_id: str = "default") -> AsyncIt
 
         elif item_type == "tool_call_output_item":
             output = getattr(item, "output", "")
-            # Update last trace step with output
             if recorder.steps:
                 recorder.steps[-1].output = {"result": str(output)[:500]}
 
@@ -255,7 +266,6 @@ async def run_agent_stream(message: str, session_id: str = "default") -> AsyncIt
                 pass
 
         elif item_type == "message_output_item":
-            # This is the final message from the agent
             content = ""
             if hasattr(item, "raw_item"):
                 raw = item.raw_item
@@ -268,16 +278,6 @@ async def run_agent_stream(message: str, session_id: str = "default") -> AsyncIt
                     yield {"type": "token", "text": word + " "}
                 answer_parts.append(content)
 
-        elif item_type == "handoff_output_item":
-            # Detect which agent was handed off to for mode classification
-            target = getattr(item, "target_agent", None)
-            if target:
-                target_name = getattr(target, "name", "")
-                if "Verify" in target_name:
-                    mode = "verify"
-                elif "Plan" in target_name:
-                    mode = "plan"
-
     # Build map actions
     map_actions = []
     if regions_mentioned:
@@ -289,7 +289,14 @@ async def run_agent_stream(message: str, session_id: str = "default") -> AsyncIt
                                   for f in facilities_mentioned[:50] if f.get("lat")]}
         ))
 
-    # Build final response
+    # Detect mode from which agent tools were called
+    mode = "explore"
+    tool_names = {s.name for s in recorder.steps}
+    if "ask_verifier" in tool_names or "run_facility_debate" in tool_names:
+        mode = "verify"
+    elif "run_mission_debate" in tool_names:
+        mode = "plan"
+
     final_answer = " ".join(answer_parts) if answer_parts else result.final_output or "No response generated."
 
     response = ChatResponse(

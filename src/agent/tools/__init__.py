@@ -7,21 +7,7 @@ from agent.tools.overview_tools import make_overview_tools
 
 
 def make_all_tools(G):
-    """Create all 11 agent tools bound to the given graph.
-
-    Tools:
-        1. resolve_terms      — vocabulary guard / self-RAG entry point
-        2. find_facility       — fuzzy facility name lookup
-        3. search_facilities   — multi-criteria facility search
-        4. count_facilities    — aggregation and distribution
-        5. search_raw_text     — free-text fallback
-        6. inspect_facility    — deep dive into one facility
-        7. get_requirements    — equipment requirements + facility comparison
-        8. find_gaps           — deserts, could_support, NGO gaps, compliance
-        9. find_cold_spots     — geographic coverage analysis
-       10. detect_anomalies    — statistical outlier detection
-       11. explore_overview    — national/region/specialty overview
-    """
+    """Create all 11 agent tools bound to the given graph."""
     return [
         *make_resolve_tools(G),
         *make_search_tools(G),
@@ -30,3 +16,37 @@ def make_all_tools(G):
         *make_anomaly_tools(G),
         *make_overview_tools(G),
     ]
+
+
+def make_explorer_tools(G):
+    """Tools for the Explorer agent: landscape, gaps, distributions."""
+    return [
+        *make_resolve_tools(G),
+        *make_overview_tools(G),
+        *_pick(make_search_tools(G), {"count_facilities", "search_raw_text"}),
+        *make_gap_tools(G),
+    ]
+
+
+def make_fact_tools(G):
+    """Tools for the FactAgent: facility lookups, searches, equipment."""
+    return [
+        *make_resolve_tools(G),
+        *_pick(make_search_tools(G), {"find_facility", "search_facilities"}),
+        *make_inspect_tools(G),
+    ]
+
+
+def make_verifier_tools(G):
+    """Tools for the Verifier agent: anomalies, compliance, validation."""
+    return [
+        *make_resolve_tools(G),
+        *make_anomaly_tools(G),
+        *_pick(make_inspect_tools(G), {"inspect_facility", "get_requirements"}),
+        *_pick(make_search_tools(G), {"search_raw_text"}),
+    ]
+
+
+def _pick(tools, names: set):
+    """Filter a tool list to only those whose name is in *names*."""
+    return [t for t in tools if t.name in names]

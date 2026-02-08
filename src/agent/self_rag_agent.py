@@ -9,7 +9,7 @@ from agents import Agent
 
 from agent.tools import make_all_tools
 
-_PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
+_PROMPTS_DIR = Path(__file__).resolve().parent.parent.parent / "prompts"
 
 
 def _load_prompt() -> str:
