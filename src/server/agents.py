@@ -1,16 +1,15 @@
-"""VirtueCommand agent orchestration — multi-agent architecture.
+"""VirtueCommand agent orchestration — thin HTTP-layer wrapper.
 
-Supervisor (main agent) delegates to three data-gathering sub-agents
-via function_tool wrappers, then synthesizes the final answer.
+Handles agent initialization, SSE streaming, and fallback responses.
+Agent definitions live in the ``agent`` package.
 """
 from __future__ import annotations
 
 import json
 import logging
-from pathlib import Path
 from typing import AsyncIterator
 
-from agents import Agent, Runner, function_tool
+from agents import Runner
 from agents.stream_events import RunItemStreamEvent
 
 from server.config import settings
@@ -19,16 +18,9 @@ from server.tracing import TraceRecorder
 
 logger = logging.getLogger(__name__)
 
-_PROMPTS_DIR = Path(__file__).resolve().parent.parent.parent / "prompts"
-
 # Module-level state
 _graph = None
 _supervisor = None
-
-
-def _load_prompt(filename: str) -> str:
-    """Load a prompt markdown file from the prompts/ directory."""
-    return (_PROMPTS_DIR / filename).read_text()
 
 
 # ---------------------------------------------------------------------------
@@ -40,135 +32,15 @@ def init_agents(graph_dir: str = "data") -> None:
     global _graph, _supervisor
     try:
         from graph.export import load_graph
+        from agent import create_supervisor
+
         _graph = load_graph(graph_dir)
-        _supervisor = _create_supervisor(_graph)
+        _supervisor = create_supervisor(_graph)
         logger.info("Agents initialized with graph (%d nodes)", _graph.number_of_nodes())
     except Exception as e:
         logger.warning("Could not initialize agents with graph: %s. Using fallback.", e)
         _graph = None
         _supervisor = None
-
-
-# ---------------------------------------------------------------------------
-# Sub-agent factories
-# ---------------------------------------------------------------------------
-
-def _create_explorer(G) -> Agent:
-    from agent.tools import make_explorer_tools
-    return Agent(
-        name="Explorer",
-        instructions=_load_prompt("explorer.md"),
-        tools=make_explorer_tools(G),
-        model="gpt-5.2",
-    )
-
-
-def _create_fact_agent(G) -> Agent:
-    from agent.tools import make_fact_tools
-    return Agent(
-        name="FactAgent",
-        instructions=_load_prompt("fact-agent.md"),
-        tools=make_fact_tools(G),
-        model="gpt-5.2",
-    )
-
-
-def _create_verifier(G) -> Agent:
-    from agent.tools import make_verifier_tools
-    return Agent(
-        name="Verifier",
-        instructions=_load_prompt("verifier.md"),
-        tools=make_verifier_tools(G),
-        model="gpt-5.2",
-    )
-
-
-# ---------------------------------------------------------------------------
-# Supervisor construction
-# ---------------------------------------------------------------------------
-
-def _create_supervisor(G) -> Agent:
-    """Create the Supervisor agent with agent-as-tool wrappers."""
-    explorer = _create_explorer(G)
-    fact_agent = _create_fact_agent(G)
-    verifier = _create_verifier(G)
-
-    # --- Agent-as-tool wrappers ---
-
-    @function_tool
-    async def ask_explorer(query: str) -> str:
-        """Ask the Explorer about healthcare landscape, distributions,
-        gaps, deserts, cold spots, or NGO coverage."""
-        result = await Runner.run(explorer, query)
-        return result.final_output
-
-    @function_tool
-    async def ask_fact_agent(query: str) -> str:
-        """Ask the FactAgent for facility details: lookups by name,
-        multi-criteria searches, equipment checks, geospatial queries."""
-        result = await Runner.run(fact_agent, query)
-        return result.final_output
-
-    @function_tool
-    async def ask_verifier(query: str) -> str:
-        """Ask the Verifier to assess data quality: anomaly detection,
-        claim validation, equipment compliance checks."""
-        result = await Runner.run(verifier, query)
-        return result.final_output
-
-    # --- Debate tools ---
-
-    @function_tool
-    async def run_facility_debate(facility_data_json: str) -> str:
-        """Run an Advocate/Skeptic debate to verify a facility's capability claims.
-
-        Call this after getting facility data from ask_fact_agent or ask_verifier
-        to get a balanced credibility assessment with confidence score.
-
-        Args:
-            facility_data_json: JSON string with keys:
-                - facility_name: str
-                - claimed_capabilities: list[str]
-                - confirmed_equipment: list[str]
-                - missing_equipment: list[str]
-                - raw_text: str (facility description)
-                - source_count: int
-        """
-        from server.services.debate import debate_facility_tool_fn
-        return await debate_facility_tool_fn(facility_data_json)
-
-    @function_tool
-    async def run_mission_debate(constraints_and_data_json: str) -> str:
-        """Run a three-advocate debate to compare deployment options for a
-        medical mission. Each advocate argues for a different region.
-
-        Call this after gathering gap and facility data from ask_explorer
-        and ask_fact_agent to get a structured comparison with
-        Coverage/Readiness/Equity scores.
-
-        Args:
-            constraints_and_data_json: JSON string with keys:
-                - user_constraints: str (e.g. "2 ophthalmologists, 10 days")
-                - candidate_regions: list[dict] each with keys:
-                    region, facilities, deserts, population, facility_count
-        """
-        from server.services.mission_planner import plan_mission_tool_fn
-        return await plan_mission_tool_fn(constraints_and_data_json)
-
-    # --- Build Supervisor ---
-
-    return Agent(
-        name="Supervisor",
-        instructions=_load_prompt("supervisor.md"),
-        tools=[
-            ask_explorer,
-            ask_fact_agent,
-            ask_verifier,
-            run_facility_debate,
-            run_mission_debate,
-        ],
-        model="gpt-5.2",
-    )
 
 
 # ---------------------------------------------------------------------------

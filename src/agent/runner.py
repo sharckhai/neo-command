@@ -13,14 +13,14 @@ load_dotenv()
 from agents import Runner
 from agents.stream_events import RunItemStreamEvent
 
-from agent.self_rag_agent import create_agent
+from agent import create_supervisor
 from graph.export import load_graph
 
 
 async def run_query(query: str, graph_dir: str = "data") -> str:
-    """Load the graph, create the agent, and stream a single query."""
+    """Load the graph, create the supervisor agent, and stream a single query."""
     G = load_graph(graph_dir)
-    agent = create_agent(G)
+    agent = create_supervisor(G)
 
     result = Runner.run_streamed(agent, query)
 

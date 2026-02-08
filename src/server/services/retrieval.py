@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Optional
 from openai import OpenAI
 
 from server.config import settings
-from server.data.vector_search import VectorSearchClient
 from server.data.vector_store import LocalVectorStore
 from server.medical_knowledge import contains_aspirational_language, contains_referral_language
 from server.tracing import TraceRecorder
@@ -33,9 +32,6 @@ def _embed_query(query: str) -> Optional[List[float]]:
 
 
 def _search_vectors(embedding: List[float], k: int) -> List[Dict[str, Any]]:
-    if settings.is_databricks():
-        client = VectorSearchClient()
-        return client.search(embedding, k=k)
     store = LocalVectorStore()
     return store.search(embedding, k=k)
 
