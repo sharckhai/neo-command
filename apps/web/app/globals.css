@@ -1,0 +1,233 @@
+@import "mapbox-gl/dist/mapbox-gl.css";
+
+/* ══════════════════════════════════════════════════════════════════════
+   NEO Dark Theme — Ghana Health Facility Analyzer
+   ══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* NEO Palette */
+  --bg: #050505;
+  --c1: #0a0a0a;
+  --c2: #111111;
+  --c3: #1a1a1a;
+  --bd: #222222;
+
+  --t1: #e0e0e0;
+  --t2: #909090;
+  --t3: #505050;
+
+  /* Accents */
+  --O: #ff5f1f;
+  --Od: rgba(255, 95, 31, 0.1);
+  --G: #00ff94;
+  --Gd: rgba(0, 255, 148, 0.1);
+  --R: #ff2a2a;
+  --Rd: rgba(255, 42, 42, 0.1);
+  --A: #ffb800;
+  --Ad: rgba(255, 184, 0, 0.1);
+  --B: #0088ff;
+  --Bd: rgba(0, 136, 255, 0.1);
+  --P: #8b5cf6;
+  --Pd: rgba(139, 92, 246, 0.1);
+  --T: #06b6d4;
+  --Td: rgba(6, 182, 212, 0.1);
+
+  --rd: 6px;
+  --rs: 4px;
+
+  color-scheme: dark;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-body), "IBM Plex Sans", sans-serif;
+  background: var(--bg);
+  color: var(--t1);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse at 15% 20%, rgba(226, 133, 62, 0.03), transparent 50%),
+    radial-gradient(ellipse at 85% 70%, rgba(16, 185, 129, 0.025), transparent 50%);
+}
+
+#__next {
+  position: relative;
+  z-index: 1;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.mono {
+  font-family: var(--font-mono), "IBM Plex Mono", monospace;
+}
+
+/* ── Scrollbars ── */
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bd);
+  border-radius: 2px;
+}
+
+/* ── Agent Step Timeline ── */
+
+.agent-step {
+  border-left: 2px solid var(--bd);
+  padding: 12px 0 12px 16px;
+  position: relative;
+  margin-left: 8px;
+}
+
+.agent-step::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: 14px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bd);
+}
+
+.agent-step.done::before {
+  background: var(--G);
+}
+
+.agent-step.running::before {
+  background: var(--O);
+  animation: pulse 1s infinite;
+}
+
+.agent-step.error::before {
+  background: var(--R);
+}
+
+.desert-pulse {
+  animation: pulse 2s infinite;
+}
+
+/* ── Animations ── */
+
+@keyframes fu {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes typeIn {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+.fu {
+  animation: fu 0.3s ease-out forwards;
+}
+
+.d1 {
+  animation-delay: 0.03s;
+  opacity: 0;
+}
+
+.d2 {
+  animation-delay: 0.06s;
+  opacity: 0;
+}
+
+.d3 {
+  animation-delay: 0.09s;
+  opacity: 0;
+}
+
+/* ── Reduced Motion ── */
+
+@media (prefers-reduced-motion: reduce) {
+  .fu,
+  .d1,
+  .d2,
+  .d3,
+  .agent-step.running::before,
+  .desert-pulse {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* ── Mapbox Overrides ── */
+
+.mapboxgl-map {
+  border-radius: var(--rd);
+}
+
+/* ── Focus States ── */
+
+:focus-visible {
+  outline: 2px solid var(--B);
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--B);
+  outline-offset: 2px;
+}

@@ -1,0 +1,23 @@
+{
+  "build_timestamp": "2026-02-08T11:00:22.293056+00:00",
+  "total_nodes": 1019,
+  "total_edges": 7794,
+  "node_counts": {
+    "Region": 16,
+    "Equipment": 48,
+    "Capability": 35,
+    "Facility": 753,
+    "Specialty": 123,
+    "NGO": 44
+  },
+  "edge_counts": {
+    "DESERT_FOR": 1549,
+    "LOCATED_IN": 728,
+    "OPERATES_IN": 54,
+    "HAS_SPECIALTY": 1806,
+    "HAS_CAPABILITY": 1964,
+    "LACKS": 1060,
+    "HAS_EQUIPMENT": 476,
+    "COULD_SUPPORT": 157
+  }
+}
