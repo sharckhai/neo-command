@@ -1,8 +1,8 @@
-# VirtueCommand
+# NeoCommand
 
 **Bridging Medical Deserts with Agentic AI** | Hack Nation 2026 - Databricks Track
 
-VirtueCommand is an AI-powered healthcare intelligence platform built for the [Virtue Foundation](https://virtuefoundation.org/). It parses messy, unstructured medical facility data from Ghana, extracts and verifies capabilities, identifies medical deserts, and helps NGO mission planners deploy teams where they are needed most.
+NeoCommand is an AI-powered healthcare intelligence platform built for the [Virtue Foundation](https://virtuefoundation.org/). It parses messy, unstructured medical facility data from Ghana, extracts and verifies capabilities, identifies medical deserts, and helps NGO mission planners deploy teams where they are needed most.
 
 ---
 
@@ -156,8 +156,8 @@ Neo/
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/<your-org>/virtuecommand.git
-cd virtuecommand
+git clone https://github.com/<your-org>/neo-command.git
+cd neo-command
 ```
 
 ### 2. Set Up Environment Variables
@@ -297,12 +297,6 @@ Built for the **Databricks x Hack Nation** track: *Bridging Medical Deserts - Bu
 - IDP Innovation (30%) - extraction and synthesis from unstructured free-form text
 - Social Impact (25%) - identifying medical deserts for resource allocation
 - User Experience (10%) - intuitive interface for non-technical NGO planners
-
----
-
-## Team
-
-Built at Hack Nation 2026 (Feb 7-8) in collaboration with MIT Sloan AI Club & MIT Club of Northern California.
 
 ---
 
