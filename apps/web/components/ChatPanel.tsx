@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { parseEventStream } from "../lib/sse";
+import { ChatResponse } from "../lib/types";
 
 type Message = {
   role: "user" | "assistant";
@@ -32,23 +34,49 @@ export default function ChatPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: prompt, session_id: "local" }),
       });
-      if (!res.body) {
-        return;
-      }
+      if (!res.body) return;
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      let finalPayload: ChatResponse | null = null;
+
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() ?? "";
+        for (const part of parts) {
+          const events = parseEventStream(part + "\n\n");
+          for (const event of events) {
+            if (event.type === "token") {
+              setMessages((prev) => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                const nextContent = (last?.content || "") + event.text;
+                updated[updated.length - 1] = { role: "assistant", content: nextContent };
+                return updated;
+              });
+            }
+            if (event.type === "final") {
+              finalPayload = event.payload;
+              setMessages((prev) => {
+                const updated = [...prev];
+                updated[updated.length - 1] = {
+                  role: "assistant",
+                  content: event.payload.answer,
+                };
+                return updated;
+              });
+            }
+          }
+        }
       }
-      if (buffer) {
-        setMessages((prev) => {
-          const updated = [...prev];
-          updated[updated.length - 1] = { role: "assistant", content: buffer.trim() };
-          return updated;
-        });
+
+      if (finalPayload) {
+        window.dispatchEvent(
+          new CustomEvent("map-actions", { detail: finalPayload })
+        );
       }
     } finally {
       setIsLoading(false);
