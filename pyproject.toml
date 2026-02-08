@@ -1,0 +1,50 @@
+[project]
+name = "virtuecommand"
+version = "0.1.0"
+description = "VirtueCommand data pipeline"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "pandas",
+  "pyarrow",
+  "pydantic",
+  "openai",
+  "tiktoken",
+  "python-dotenv",
+  "typer",
+  "rich",
+  "tenacity",
+  "thefuzz",
+  "fastapi",
+  "uvicorn",
+  "sse-starlette",
+  "openai-agents",
+  "duckdb",
+  "httpx",
+]
+
+[project.optional-dependencies]
+databricks = [
+  "databricks-sql-connector",
+  "databricks-vector-search",
+]
+local = [
+  "lancedb",
+]
+dev = [
+  "pytest",
+  "ruff",
+]
+
+[project.scripts]
+pipeline = "pipeline.run:app"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
