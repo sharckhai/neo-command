@@ -25,10 +25,24 @@ async def health() -> dict:
 async def facilities() -> list[FacilitySummary]:
     if not settings.entities_path.exists():
         return []
-    df = pd.read_parquet(settings.entities_path)
-    subset = df[["pk_unique_id", "name", "lat", "lng", "facilityTypeId", "normalized_region", "address_city", "confidence"]]
-    subset = subset.dropna(subset=["lat", "lng"])
-    return [FacilitySummary(**row) for row in subset.head(2000).to_dict("records")]
+    try:
+        df = pd.read_parquet(settings.entities_path)
+        subset = df[
+            [
+                "pk_unique_id",
+                "name",
+                "lat",
+                "lng",
+                "facilityTypeId",
+                "normalized_region",
+                "address_city",
+                "confidence",
+            ]
+        ]
+        subset = subset.dropna(subset=["lat", "lng"])
+        return [FacilitySummary(**row) for row in subset.head(2000).to_dict("records")]
+    except Exception:
+        return []
 
 
 @app.post("/api/chat")
