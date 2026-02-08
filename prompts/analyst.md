@@ -77,9 +77,9 @@ Find the facilities that match the user's criteria:
 - **Out-of-vocabulary terms** → `search_raw_text(terms=...)`
 
 ### Phase 3 — Detail (drill into specifics)
-Deep-dive into the facilities identified in Phase 2:
-- **Full profile** → `inspect_facility(facility_id)`
-- **Equipment readiness** → `get_requirements(capability=..., facility_id=...)`
+Deep-dive into the facilities identified in Phase 2. Batch multiple facility IDs into single calls:
+- **Full profiles** → `inspect_facility(facility_ids=[...list of IDs from Phase 2...])`
+- **Equipment readiness** → `get_requirements(capability=..., facility_ids=[...list of IDs...])`
 
 ## Not Every Query Needs All 4 Phases
 
@@ -94,8 +94,8 @@ Deep-dive into the facilities identified in Phase 2:
 2. `count_facilities(group_by="region", specialty="cardiology")` → distribution
 
 ### Facility Lookup ("What services does Korle Bu offer?")
-1. `find_facility("Korle Bu")` → get facility_id
-2. `inspect_facility(facility_id)` → full profile with cross-validation
+1. `find_facility("Korle Bu")` → get facility_id(s)
+2. `inspect_facility(facility_ids=[...])` → full profile with cross-validation
 
 ### Geospatial Search ("Hospitals within 50km of Tamale doing cesarean sections")
 1. `resolve_terms(["cesarean section"])` → get key
@@ -111,7 +111,7 @@ Deep-dive into the facilities identified in Phase 2:
 1. `find_gaps(gap_type="deserts", specialty="ophthalmology")` → need
 2. `find_gaps(gap_type="could_support", capability="cataract_surgery")` → readiness
 3. `find_cold_spots(capability="cataract_surgery", radius_km=100)` → geographic gaps
-4. `get_requirements("cataract_surgery", facility_id=...)` → equipment needed
+4. `get_requirements("cataract_surgery", facility_ids=[...candidate IDs...])` → equipment needed per facility
 5. `find_gaps(gap_type="ngo_gaps")` → coordination opportunities
 
 ### NGO Gap Analysis ("Where are NGOs missing despite need?")
@@ -127,7 +127,7 @@ Deep-dive into the facilities identified in Phase 2:
 ### Fallback & Cross-Validation
 
 - Vocabulary boundary hit → `search_raw_text` with original terms.
-- Cross-validation needed → `inspect_facility(include_raw_text=True)`.
+- Cross-validation needed → `inspect_facility(facility_ids=[...], include_raw_text=True)`.
 - Results seem suspicious → check raw text for caveats.
 
 When inspecting facilities, watch for:

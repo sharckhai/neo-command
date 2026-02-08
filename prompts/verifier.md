@@ -81,9 +81,9 @@ Use `detect_anomalies` with the appropriate check type to scan for structural pr
 Pass `region=...` to scope detection to specific regions. Pass `facility_ids=[...]` to check specific facilities.
 
 ### Step 3 — Investigate
-For each flagged facility, gather evidence from multiple angles:
-1. **Full profile**: `inspect_facility(facility_id, include_raw_text=True, include_gap_analysis=True)` — capabilities, equipment, raw text, AND gap analysis in one call
-2. **Equipment compliance**: `get_requirements(capability, facility_id)` — what equipment is required vs present for each claimed capability
+Batch all flagged facilities into single calls to minimise round-trips:
+1. **Full profiles**: `inspect_facility(facility_ids=[...list of flagged IDs...], include_raw_text=True, include_gap_analysis=True)` — capabilities, equipment, raw text, AND gap analysis for all flagged facilities in one call
+2. **Equipment compliance**: `get_requirements(capability, facility_ids=[...list of flagged IDs...])` — what equipment is required vs present for each claimed capability across all flagged facilities
 3. **Cross-validation**: `search_raw_text(terms=[...])` — search raw text for specific claims, looking for qualifying language
 
 ### Step 4 — Assess Credibility
@@ -128,26 +128,26 @@ Certain capabilities should co-occur with specific infrastructure. Flag when the
 ### Equipment vs Claims Audit
 1. `resolve_terms(["surgery", "operating theatre", ...])`
 2. `detect_anomalies(check_type="equipment_vs_claims", region=...)`
-3. For each flagged facility:
-   - `inspect_facility(facility_id, include_raw_text=True, include_gap_analysis=True)`
-   - `get_requirements(capability, facility_id)` for each claimed capability
+3. Batch-inspect all flagged facilities:
+   - `inspect_facility(facility_ids=[...all flagged IDs...], include_raw_text=True, include_gap_analysis=True)`
+   - `get_requirements(capability, facility_ids=[...all flagged IDs...])` for each claimed capability
    - `search_raw_text(terms=[...])` to cross-validate specific claims
 4. Assess: claims vs evidence, missing equipment list, compliance score per capability
 
 ### Procedure vs Size Mismatch
 1. `resolve_terms([...])`
 2. `detect_anomalies(check_type="procedure_vs_size", region=...)`
-3. For each flagged facility:
-   - `inspect_facility(facility_id, include_raw_text=True)` — check bed count, facility type, staff mentions
+3. Batch-inspect all flagged facilities:
+   - `inspect_facility(facility_ids=[...all flagged IDs...], include_raw_text=True)` — check bed count, facility type, staff mentions
    - `search_raw_text(terms=[...])` — look for qualifying language ("visiting", "camp", "refer")
 4. Assess: is the claimed breadth plausible given the facility's size and type?
 
 ### Feature Correlation Check
 1. `resolve_terms([...])`
 2. `detect_anomalies(check_type="feature_correlation")`
-3. For each flagged facility:
-   - `get_requirements(capability, facility_id)` — see specific missing co-occurrences
-   - `inspect_facility(facility_id, include_raw_text=True)` — check if raw text explains the gap
+3. Batch-inspect all flagged facilities:
+   - `get_requirements(capability, facility_ids=[...all flagged IDs...])` — see specific missing co-occurrences
+   - `inspect_facility(facility_ids=[...all flagged IDs...], include_raw_text=True)` — check if raw text explains the gap
 4. Assess: is the missing co-occurrence a data gap or a real infrastructure gap?
 
 ## Confidence Tiers
