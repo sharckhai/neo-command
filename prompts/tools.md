@@ -1,4 +1,4 @@
-# Tool Reference — VirtueCommand Self-RAG Agent
+# Tool Reference — VirtueCommand Analyst Agent
 
 ## 1. resolve_terms
 
@@ -195,27 +195,7 @@
 
 ---
 
-## 10. detect_anomalies
-
-**Purpose**: Flag facilities with suspicious data patterns for quality review.
-
-**Parameters**:
-- `check_type` (str, required): One of:
-  - `"procedure_vs_size"` — many high-complexity procedures relative to bed capacity.
-  - `"equipment_vs_claims"` — many capabilities but few equipment items.
-  - `"feature_correlation"` — expected equipment missing for claimed capabilities.
-  - `"bed_or_ratio"` — unusual bed-to-surgical-capability ratios.
-- `region` (str, optional): Region filter.
-- `threshold` (float, optional): Sensitivity (0–1, lower = more sensitive).
-- `limit` (int, optional): Max flagged facilities (default 20).
-
-**Returns**: Flagged facilities with anomaly scores and explanations.
-
-**When to use**: For data quality questions: "Which facilities claim unrealistic procedures?", "Where do capabilities not match equipment?", "What correlations seem wrong?"
-
----
-
-## 11. explore_overview
+## 10. explore_overview
 
 **Purpose**: High-level landscape exploration — national overview, region deep-dive, or specialty breakdown.
 

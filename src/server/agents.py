@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from typing import AsyncIterator
 
-from agents import Runner
+from agents import Runner, RunConfig
 from agents.stream_events import RunItemStreamEvent
 
 from server.config import settings
@@ -27,9 +28,20 @@ _supervisor = None
 # Initialisation
 # ---------------------------------------------------------------------------
 
+def _setup_tracing() -> None:
+    """Add a console exporter when VIRTUECOMMAND_TRACE_CONSOLE is enabled."""
+    if os.environ.get("VIRTUECOMMAND_TRACE_CONSOLE", "").lower() in ("1", "true", "yes"):
+        from agents.tracing import add_trace_processor
+        from agents.tracing.processors import ConsoleSpanExporter, BatchTraceProcessor
+
+        add_trace_processor(BatchTraceProcessor(ConsoleSpanExporter()))
+        logger.info("Console trace exporter enabled")
+
+
 def init_agents(graph_dir: str = "data") -> None:
     """Initialize graph and agents. Called at server startup."""
     global _graph, _supervisor
+    _setup_tracing()
     try:
         from graph.export import load_graph
         from agent import create_supervisor
@@ -98,7 +110,14 @@ async def run_agent_stream(message: str, session_id: str = "default") -> AsyncIt
     facilities_mentioned = []
     regions_mentioned = []
 
-    result = Runner.run_streamed(_supervisor, message)
+    result = Runner.run_streamed(
+        _supervisor,
+        message,
+        run_config=RunConfig(
+            workflow_name="VirtueCommand",
+            group_id=session_id,
+        ),
+    )
 
     async for event in result.stream_events():
         if not isinstance(event, RunItemStreamEvent):

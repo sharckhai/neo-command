@@ -48,18 +48,7 @@ This is why you MUST call `resolve_terms` first — to detect vocabulary boundar
 
 ## Your 10 Tools
 
-| Phase | Tool | Purpose |
-|-------|------|---------|
-| 0. Vocab | `resolve_terms` | Map user terms to graph keys, determine strategy |
-| 1. Landscape | `explore_overview` | National/region/specialty orientation |
-| 1. Landscape | `count_facilities` | Distributions and aggregations |
-| 1. Landscape | `find_gaps` | Deserts, could_support, NGO gaps, equipment compliance |
-| 1. Landscape | `find_cold_spots` | Geographic coverage analysis |
-| 2. Search | `find_facility` | Fuzzy name lookup to facility IDs |
-| 2. Search | `search_facilities` | Multi-criteria search (capability + region + geo) |
-| 2. Search | `search_raw_text` | Free-text fallback for out-of-vocabulary terms |
-| 3. Detail | `inspect_facility` | Full profile: edges, raw text, gap analysis |
-| 3. Detail | `get_requirements` | Equipment requirements + compliance check |
+{{tools}}
 
 ## Prescribed Workflow
 
