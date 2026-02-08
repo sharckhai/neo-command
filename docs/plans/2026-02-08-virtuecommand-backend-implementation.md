@@ -16,6 +16,7 @@
 - Create: `src/server/tracing.py`
 - Modify: `src/server/models.py:8-34`
 - Modify: `src/server/config.py:1-40`
+- Modify: `pyproject.toml:7-36`
 - Create: `tests/server/test_trace.py`
 
 **Step 1: Write the failing test**
@@ -59,7 +60,21 @@ class TraceRecorder:
         return list(self.steps)
 ```
 
-Also update `ChatResponse` to include `trace: List[TraceEvent]` and add optional MLflow config fields in `Settings`.
+Also update `ChatResponse` to include `trace: List[TraceEvent]`, add optional MLflow config fields in `Settings`, and add dependencies for `mlflow` plus Databricks adapters.
+
+```toml
+dependencies = [
+  ...
+  "mlflow",
+  "databricks-sdk",
+  "databricks-vectorsearch",
+]
+
+[project.optional-dependencies]
+databricks = [
+  "databricks-sql-connector",
+]
+```
 
 **Step 4: Run test to verify it passes**
 
