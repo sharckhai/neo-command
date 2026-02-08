@@ -1362,7 +1362,7 @@
           {hasData && <>
             {/* Navigation Tabs (Sub-header) */}
             <div style={{ height: 40, borderBottom: '1px solid var(--bd)', display: 'flex', alignItems: 'center', padding: '0 20px', gap: 20 }}>
-              {[{ id: 'overview', l: 'OVERVIEW & DESERTS', i: '🗺️' }, { id: 'mission', l: 'MISSION PLANNER', i: '📡' }, { id: 'graph', l: 'GRAPH VIEW', i: '🕸️' }].map(t =>
+              {[{ id: 'graph', l: 'GRAPH VIEW', i: '🕸️' }, { id: 'overview', l: 'OVERVIEW & DESERTS', i: '🗺️' }, { id: 'mission', l: 'MISSION PLANNER', i: '📡' }].map(t =>
                 <button key={t.id} onClick={() => setScreen(t.id)} style={{ background: 'none', border: 'none', borderBottom: screen === t.id ? '2px solid var(--B)' : '2px solid transparent', color: screen === t.id ? 'var(--t1)' : 'var(--t3)', fontSize: 11, fontWeight: 700, padding: '10px 0', cursor: 'pointer', display: 'flex', gap: 6, letterSpacing: '0.05em' }}>
                   <span style={{ opacity: screen === t.id ? 1 : 0.5 }}>{t.i}</span> {t.l}
                 </button> // Added missing closing brace
