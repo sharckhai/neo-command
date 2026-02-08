@@ -92,7 +92,6 @@ def make_search_tools(G: nx.MultiDiGraph) -> list:
         equipment: str | None = None,
         specialty: str | None = None,
         region: str | None = None,
-        min_confidence: float = 0.5,
     ) -> str:
         """Count facilities grouped by a dimension, with optional filters.
 
@@ -106,14 +105,12 @@ def make_search_tools(G: nx.MultiDiGraph) -> list:
             equipment: Filter to facilities with this equipment.
             specialty: Filter to facilities with this specialty.
             region: Filter to facilities in this region.
-            min_confidence: Minimum edge confidence (default 0.5).
         """
         try:
             result = count_and_group_facilities(
                 G, group_by,
                 capability=capability, equipment=equipment,
                 specialty=specialty, region=region,
-                min_confidence=min_confidence,
             )
             return json.dumps(result, default=str)
         except Exception as e:
