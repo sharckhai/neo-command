@@ -100,6 +100,20 @@
       font-family: 'IBM Plex Mono', monospace
     }
 
+    .neo-tooltip {
+      background: #fff !important;
+      border: 1px solid #ddd !important;
+      border-radius: 8px !important;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15) !important;
+      padding: 10px 12px !important;
+      color: #333 !important;
+      font-family: 'IBM Plex Sans', sans-serif !important;
+    }
+
+    .neo-tooltip:before {
+      border-top-color: #fff !important;
+    }
+
     ::-webkit-scrollbar {
       width: 4px;
       height: 4px
@@ -741,9 +755,32 @@
           const an = (f.anomalies || []).length;
           const col = isPlan ? '#10b981' : has === true ? '#10b981' : has === false ? '#ef4444' : an > 0 ? '#f59e0b' : '#e2853e';
           const r = isPlan ? 10 : has === true ? 8 : 6;
+
+          // Hover Data
+          const stab = an > 2 ? 'Low' : an > 0 ? 'Moderate' : 'High';
+          const stabC = an > 2 ? '#ef4444' : an > 0 ? '#f59e0b' : '#10b981';
+          const type = (f.facility_type || '').toLowerCase();
+          const rad = type.includes('hospital') ? (type.includes('teaching') || type.includes('regional') ? 25 : 15) : (type.includes('health') || type.includes('poly') ? 10 : 5);
+
           const m = L.circleMarker([f.lat, f.lng], { radius: r, fillColor: col, color: '#000', weight: isPlan ? 2.5 : 1.5, fillOpacity: .9 }).addTo(mI.current);
-          const tc = f.capabilities ? Object.entries(f.capabilities).filter(([k, v]) => v === true).slice(0, 4).map(([k]) => `<span style="display:inline-block;padding:1px 4px;margin:1px;border-radius:3px;background:rgba(226,133,62,.1);color:#e2853e;font-size:8px">${(CAP[k] || {}).i || ''} ${(CAP[k] || {}).l || k}</span>`).join('') : '';
-          m.bindPopup(`<div style="min-width:140px"><b style="font-size:12px">${f.name}</b><div style="color:#8899ad;font-size:10px;margin:2px 0">${f.city || ''} ${f.region ? '· ' + f.region : ''}</div>${tc}${isPlan ? '<div style="color:#10b981;font-size:10px;margin-top:4px">★ In mission plan</div>' : ''}</div>`);
+
+          m.bindTooltip(`
+            <div style="text-align:left;">
+               <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; padding-bottom:6px; border-bottom:1px solid #eee;">
+                  <div style="width:8px; height:8px; background:${col}; border-radius:50%;"></div>
+                  <div style="font-weight:700; font-size:11px; color:#000; text-transform:uppercase;">${f.name}</div>
+               </div>
+               <div style="font-size:10px; font-weight:600; color:#666; display:flex; flex-direction:column; gap:2px;">
+                  <div style="display:flex; justify-content:space-between; width:100%; gap:12px;">
+                    <span>STABILITY:</span> <span style="color:${stabC}">${stab.toUpperCase()}</span>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; width:100%;">
+                    <span>RADIUS:</span> <span>${rad}KM</span>
+                  </div>
+               </div>
+            </div>
+          `, { direction: 'top', offset: [0, -10], opacity: 1, className: 'neo-tooltip' });
+
           m.on('click', () => onFacClick?.(f)); mk.current.push(m);
         });
         const pts = facilities.filter(f => f.lat && f.lng).map(f => [f.lat, f.lng]);
@@ -934,94 +971,146 @@
        ══════════════════════════════════════════════════════════════════════ */
     const ScreenMission = ({ facilities, onFacClick, apiKey, elevenKey }) => {
       const { speak, listen, listening, speaking } = useAudioAgent(elevenKey);
-      const [mission, setMission] = useState('');
-      const [planResult, setPlanResult] = useState(null), [planSteps, setPlanSteps] = useState([]), [planning, setPlanning] = useState(false), [planError, setPlanError] = useState(null);
+      const [messages, setMessages] = useState([
+        { role: 'system', content: 'I am the NEO C-Suite Intelligence System. I can analyze facility data, cross-reference with national policy, and detect operational gaps. How can I assist you?' }
+      ]);
+      const [input, setInput] = useState('');
+      const [loading, setLoading] = useState(false);
+      const [currStep, setCurrStep] = useState(null); // For swarm visualization
 
-      const doPlan = async () => {
-        if (!mission.trim()) return;
-        setPlanning(true); setPlanSteps([]); setPlanResult(null); setPlanError(null);
-        if (!apiKey) { setPlanError('⚠ Set your OpenAI API key first (click 🔑 in the top-right corner)'); setPlanning(false); return; }
-        try { const r = await runMissionPlan(mission, facilities, apiKey, setPlanSteps); setPlanResult(r); }
-        catch (e) { console.error('Plan failed:', e); setPlanError(`❌ ${e.message}`); }
-        setPlanning(false);
+      const directives = [
+        { icon: '🌐', title: 'SPATIAL CORRELATION', label: 'Maternal Gap Analysis', desc: 'Correlate district population density > 500/km² with absence of CEMONC facilities to identify high-risk maternal mortality zones.', query: 'Run a maternal gap analysis correlating population w/ CEMONC gaps.' },
+        { icon: '⚡', title: 'LOGISTICS ENGINE', label: 'Cold Chain Optimization', desc: 'Optimize drone delivery routes for blood supplies in the Northern Region, accounting for max flight time of 45 mins.', query: 'Optimize drone delivery routes for blood in Northern Region.' },
+        { icon: '👥', title: 'AGENT SIMULATION', label: 'Catchment Simulation', desc: 'Simulate a 5km catchment radius for all Level I clinics and identify population clusters > 10,000 outside service zones.', query: 'Simulate 5km catchment for Level I clinics and find coverage gaps.' },
+        { icon: '🛡️', title: 'REGULATORY CHECK', label: 'Policy Compliance Audit', desc: 'List all facilities flagging "Critical" on the 2024 Infrastructure Audit regarding backup power generation.', query: 'Audit facilities for critical power backup failures.' },
+      ];
+
+      const runMission = async (txt) => {
+        if (!txt.trim()) return;
+        setMessages(p => [...p, { role: 'user', content: txt }]);
+        setInput('');
+        setLoading(true);
+        setCurrStep('Initializing Agent Swarm...');
+
+        if (!apiKey) {
+          setMessages(p => [...p, { role: 'system', content: "⚠ PLEASE CONFIGURE API KEY: Click 'API Key' in top right." }]);
+          setLoading(false);
+          return;
+        }
+
+        try {
+          const res = await runMissionPlan(txt, facilities, apiKey, (steps) => {
+            const last = steps[steps.length - 1];
+            setCurrStep(`${last.agent} // ${last.action}...`);
+          });
+
+          setMessages(p => [...p, { role: 'system', content: res.plan.executive_summary, type: 'result', data: res }]);
+        } catch (e) {
+          setMessages(p => [...p, { role: 'system', content: `❌ MISSION ABORTED: ${e.message}` }]);
+        }
+        setLoading(false);
+        setCurrStep(null);
       };
 
-      return <div style={{ display: 'grid', gridTemplateColumns: '450px 1fr', gap: 20, padding: 20, height: '100%' }}>
-        {/* Left Panel: Chat Interface */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <Card className="fu" style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 20 }}>
-            <div style={{ marginBottom: 20 }}>
-              <h2 style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8 }}>NEO Mission Control</h2>
-              <div style={{ fontSize: 12, color: 'var(--t2)', lineHeight: 1.5 }}>
-                I am the NEO C-Suite Intelligence System. I can analyze facility data, cross-reference with national policy, and detect operational gaps. How can I assist you?
-              </div>
+      const messagesEndRef = useRef(null);
+      useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
+
+      return <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
+
+        <div className="neo-scroll" style={{ flex: 1, width: '100%', maxWidth: 900, padding: '40px 20px 100px 20px', overflowY: 'auto' }}>
+
+          {/* Welcome State (Directives) */}
+          {messages.length === 1 && !loading && <div style={{ marginBottom: 40, animation: 'fadeIn 0.5s ease-out' }}>
+            <div style={{ textAlign: 'center', marginBottom: 40 }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>✨</div>
+              <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 10 }}>Mission Planner</h1>
+              <div style={{ color: 'var(--t2)', fontSize: 13 }}>Select a strategic directive to initialize the C-Suite Agent Swarm.</div>
             </div>
 
-            <div style={{ flex: 1 }}></div>
-
-            <div style={{ position: 'relative' }}>
-              <textarea
-                value={mission}
-                onChange={e => setMission(e.target.value)}
-                placeholder="Describe your objective..."
-                className="mono"
-                rows={4}
-                onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) doPlan() }}
-                style={{ width: '100%', padding: '16px', borderRadius: 'var(--rs)', background: 'var(--c2)', border: '1px solid var(--bd)', color: 'var(--t1)', fontSize: 12, outline: 'none', resize: 'none' }}
-              />
-              <button onClick={() => listen(t => setMission(p => p + (p ? ' ' : '') + t))} style={{ position: 'absolute', right: 12, bottom: 12, background: listening ? 'var(--R)' : 'var(--c1)', border: '1px solid var(--bd)', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: listening ? '#fff' : 'var(--t2)', transition: 'all .2s' }}>
-                {listening ? '🛑' : '🎙️'}
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-              <Btn onClick={doPlan} disabled={!mission.trim() || planning} icon={planning ? <Spin /> : '🚀'}>
-                {planning ? 'Analyzing...' : 'Execute Mission Analysis'}
-              </Btn>
-            </div>
-
-            {planError && <div style={{ marginTop: 12, padding: 12, background: 'var(--Rd)', color: 'var(--R)', borderRadius: 'var(--rs)', fontSize: 11 }}>{planError}</div>}
-          </Card>
-        </div>
-
-        {/* Right Panel: Results & Map Snippets */}
-        <div className="neo-scroll" style={{ overflowY: 'auto', paddingRight: 4 }}>
-          {/* Empty State */}
-          {!planResult && !planning && <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.3, flexDirection: 'column' }}>
-            <div style={{ fontSize: 40, marginBottom: 10 }}>📡</div>
-            <div style={{ fontSize: 12 }}>AWAITING MISSION PARAMETERS</div>
-          </div>}
-
-          {/* Plan Result */}
-          {planResult?.plan && <div className="fu">
-            <Card style={{ marginBottom: 16, border: '1px solid var(--Gd)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-                <div>
-                  <div style={{ fontSize: 11, color: 'var(--G)', fontWeight: 600, letterSpacing: '0.05em', marginBottom: 4 }}>MISSION REPORT UT-404</div>
-                  <div style={{ fontSize: 18, fontWeight: 700 }}>Executive Summary</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              {directives.map((d, i) => <Card key={i} className="hover-glow" onClick={() => runMission(d.query)} style={{ cursor: 'pointer', padding: 20, background: 'var(--c2)', border: '1px solid var(--bd)', transition: 'transform 0.2s', height: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--B)', letterSpacing: '0.05em', border: '1px solid var(--B)', padding: '2px 6px', borderRadius: 4 }}>{d.icon} {d.title}</div>
                 </div>
-                <button onClick={() => speak(planResult.plan.executive_summary)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}>{speaking ? '🔊' : '🔈'}</button>
-              </div>
-              <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--t1)' }}>{planResult.plan.executive_summary}</div>
-            </Card>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, marginBottom: 16 }}>
-              {planResult.plan.recommendations?.map((r, i) => <Card key={i} style={{ padding: 14 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <Badge color={r.priority === 'high' ? 'red' : r.priority === 'medium' ? 'amber' : 'green'}>{r.priority.toUpperCase()}</Badge>
-                  <span style={{ fontSize: 11, color: 'var(--t3)' }}>{r.location}</span>
-                </div>
-                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{r.action}</div>
-                <div style={{ fontSize: 12, color: 'var(--t2)' }}>{r.rationale}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, color: 'var(--t1)' }}>{d.label}</div>
+                <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--t2)', fontStyle: 'italic' }}>"{d.desc}"</div>
               </Card>)}
             </div>
           </div>}
 
-          {/* Agent Trace */}
-          {(planning || planSteps.length > 0) && <Card style={{ marginTop: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 10, color: 'var(--t3)' }}>SYSTEM LOGS</div>
-            <AgentTrace steps={planSteps} />
-          </Card>}
+          {/* Chat History */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            {messages.map((m, i) => <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+              <div style={{ maxWidth: '85%', minWidth: 300 }}>
+                {m.type === 'result' ? (
+                  <div className="fu">
+                    <Card style={{ padding: 20, border: '1px solid var(--Gd)', background: 'rgba(16,185,129,0.05)' }}>
+                      <div style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}>{m.content}</div>
+
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--t3)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}> EVIDENCE RETRIEVED</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                        {m.data.facilities.slice(0, 4).map(f => <Card key={f.id} style={{ padding: 10, background: 'var(--c1)' }}>
+                          <div style={{ fontSize: 10, color: 'var(--t3)', display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Facility Registry</span>
+                            <span style={{ color: 'var(--B)' }}>{Math.round(f.matchScore * 100)}% Match</span>
+                          </div>
+                          <div style={{ fontWeight: 600, fontSize: 12, margin: '4px 0' }}>{f.name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--t2)' }}>{f.city} · {(f.matched || []).join(', ')}</div>
+                        </Card>)}
+                      </div>
+                    </Card>
+                  </div>
+                ) : (
+                  <Card style={{
+                    padding: '16px 20px',
+                    background: m.role === 'user' ? 'var(--B)' : 'var(--c2)',
+                    color: m.role === 'user' ? '#fff' : 'var(--t1)',
+                    border: m.role === 'user' ? 'none' : '1px solid var(--bd)',
+                    borderRadius: m.role === 'user' ? '20px 20px 4px 20px' : '20px 20px 20px 4px'
+                  }}>
+                    <div style={{ fontSize: 14, lineHeight: 1.5 }}>{m.content}</div>
+                  </Card>
+                )}
+              </div>
+            </div>)}
+
+            {/* Agent Swarm Loader */}
+            {loading && <div style={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}>
+              <div style={{ width: '100%', background: 'linear-gradient(90deg, rgba(59,130,246,0.1) 0%, rgba(59,130,246,0.02) 100%)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: 8, padding: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <div className="pulse" style={{ width: 12, height: 12, borderRadius: '50%', background: 'var(--B)' }}></div>
+                  <div className="pulse" style={{ width: 12, height: 12, borderRadius: '50%', background: 'var(--P)', animationDelay: '0.2s' }}></div>
+                  <div className="pulse" style={{ width: 12, height: 12, borderRadius: '50%', background: 'var(--G)', animationDelay: '0.4s' }}></div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--t1)' }}>Agent Council Deliberation</div>
+                  <div className="mono" style={{ fontSize: 11, color: 'var(--B)' }}>{currStep || 'Initializing...'}</div>
+                </div>
+              </div>
+            </div>}
+            <div ref={messagesEndRef} />
+          </div>
+        </div>
+
+        {/* Fixed Input Bar */}
+        <div style={{ width: '100%', maxWidth: 900, padding: 20 }}>
+          <div style={{ position: 'relative', width: '100%' }}>
+            <button onClick={() => listen(t => setInput(p => p + (p ? ' ' : '') + t))} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', fontSize: 16, cursor: 'pointer', opacity: listening ? 1 : 0.5 }}>{listening ? '🛑' : '✨'}</button>
+            <input
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && runMission(input)}
+              placeholder="Ask the C-Suite Agents (e.g., 'What facilities have blood supply but no generator?')"
+              style={{ width: '100%', height: 50, borderRadius: 25, background: 'var(--c2)', border: '1px solid var(--bd)', padding: '0 50px 0 44px', color: 'var(--t1)', fontSize: 14, outline: 'none' }}
+            />
+            <button onClick={() => runMission(input)} disabled={!input.trim() || loading} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 34, height: 34, borderRadius: '50%', background: input.trim() ? 'var(--t1)' : 'var(--c3)', border: 'none', color: 'var(--b1)', cursor: input.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .2s' }}>
+              ➝
+            </button>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--t3)' }}><span style={{ width: 6, height: 6, background: 'var(--B)', borderRadius: '50%' }}></span> RAG Pipeline</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--t3)' }}><span style={{ width: 6, height: 6, background: 'var(--P)', borderRadius: '50%' }}></span> Agent Swarm</div>
+          </div>
         </div>
       </div>;
     };
@@ -1352,6 +1441,28 @@
     };
 
     /* ══════════════════════════════════════════════════════════════════════
+       CountUp Animation Component
+       ══════════════════════════════════════════════════════════════════════ */
+    const CountUp = ({ end, duration = 1500 }) => {
+      const [val, setVal] = useState(0);
+      useEffect(() => {
+        let start = 0;
+        if (end === 0) { setVal(0); return; }
+        const startTime = Date.now();
+        const timer = setInterval(() => {
+          const now = Date.now();
+          const progress = Math.min((now - startTime) / duration, 1);
+          // Ease out expo
+          const next = Math.floor(end * (progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress)));
+          setVal(next);
+          if (progress === 1) clearInterval(timer);
+        }, 16);
+        return () => clearInterval(timer);
+      }, [end, duration]);
+      return val;
+    };
+
+    /* ══════════════════════════════════════════════════════════════════════
        HEADER COMPONENT (NEO Layout)
        ══════════════════════════════════════════════════════════════════════ */
     const Header = ({ facilities, extracted, geocoded, deserts, anomalies, onUpload, apiKey, setApiKey, elevenKey, setElevenKey }) => {
@@ -1376,7 +1487,7 @@
             { l: 'DESERTS', v: deserts, c: deserts > 0 ? 'var(--R)' : 'var(--t3)' },
             { l: 'ANOMALIES', v: anomalies, c: anomalies > 0 ? 'var(--A)' : 'var(--t3)' }
           ].map((s, i) => <div key={i} style={{ textAlign: 'left' }}>
-            <div className="mono" style={{ fontSize: 14, fontWeight: 600, color: s.c || 'var(--t1)', lineHeight: 1 }}>{s.v}</div>
+            <div className="mono" style={{ fontSize: 14, fontWeight: 600, color: s.c || 'var(--t1)', lineHeight: 1 }}><CountUp end={s.v} /></div>
             <div style={{ fontSize: 9, color: 'var(--t3)', fontWeight: 600, letterSpacing: '0.05em', marginTop: 3 }}>{s.l}</div>
           </div>)}
         </div>}
