@@ -1568,20 +1568,30 @@
       const [apiKey, setApiKey] = useState(localStorage.getItem('oai_key') || '');
       const [elevenKey, setElevenKey] = useState(localStorage.getItem('xi_key') || 'sk_35eec7ff908832a6a98c582f19e540d9c77eb17d403b16fc');
 
+      const ingestCSV = (text) => {
+        const f = parseCSV(text);
+        ragIndex.build(f);
+        setFacilities(f);
+        setExtracted(f.filter(x => Object.keys(x.capabilities).length > 0).length);
+        setGeocoded(f.filter(x => x.lat).length);
+        setAnomalies(f.reduce((s, x) => s + (x.anomalies || []).length, 0));
+        // Simple desert calc approximation for now
+        setDeserts(3); // Mock or calc
+      };
+
       const handleUpload = (file) => {
-        // Basic parsing wrapper (reuse logic from ScreenUpload if possible or inline it)
-        const r = new FileReader(); r.onload = e => {
-          const f = parseCSV(e.target.result);
-          ragIndex.build(f);
-          setFacilities(f);
-          setExtracted(f.filter(x => Object.keys(x.capabilities).length > 0).length);
-          setGeocoded(f.filter(x => x.lat).length);
-          setAnomalies(f.reduce((s, x) => s + (x.anomalies || []).length, 0));
-          // Simple desert calc approximation for now
-          setDeserts(3); // Mock or calc
-        };
+        const r = new FileReader();
+        r.onload = e => ingestCSV(e.target.result);
         r.readAsText(file);
       };
+
+      // Auto-load bundled Virtue Foundation Ghana CSV on first mount
+      useEffect(() => {
+        fetch('./data/virtue-foundation-ghana.csv')
+          .then(r => r.ok ? r.text() : Promise.reject(r.status))
+          .then(ingestCSV)
+          .catch(err => console.warn('Default CSV auto-load failed:', err));
+      }, []);
 
       const hasData = facilities.length > 0;
 
